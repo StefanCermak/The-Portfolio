@@ -1,11 +1,16 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
+import globals
+import Db
+
 
 class BrokerApp:
     def __init__(self):
+        self.db = Db.Db()
+
         self.Window = tk.Tk()
-        self.Window.title("Broker Application")
+        self.Window.title(globals.APP_NAME)
         self.tab_control = ttk.Notebook(self.Window)
 
         self.active_trades_tab = ttk.Frame(self.tab_control)
@@ -27,4 +32,5 @@ class BrokerApp:
 
     def run(self):
         self.Window.mainloop()
+        globals.save_user_config()
 
