@@ -1,3 +1,5 @@
+import datetime
+
 
 import globals
 import Db_Sqlite
@@ -14,3 +16,13 @@ class Db:
         if self.db_sqlite is not None:
             self.db_sqlite.close()
             self.db_sqlite = None
+
+    def get_stock_set(self):
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_stock_set()
+        else:
+            return set()
+
+    def add_stock_trade(self, stockname: str, quantity: float, price: float, trade_date: datetime.date):
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_stock_trade(stockname, quantity, price, trade_date)

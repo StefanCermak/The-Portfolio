@@ -29,6 +29,7 @@ def load_user_config():
                                    # if both are True, Mariadb is used as primary storage,
                                    # sqlite will stay in sync, and if offline,
                                    # sqlite is used in read-only mode for viewing data
+
             "MARIADB_HOST": "localhost",
             "MARIADB_PORT": 3306,
             "MARIADB_USER": "guest",
