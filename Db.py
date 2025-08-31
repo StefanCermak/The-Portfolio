@@ -42,3 +42,13 @@ class Db:
     def sell_stock(self, stockname: str, earnings: float, sell_date: datetime.date):
         if self.db_sqlite is not None:
             self.db_sqlite.sell_stock(stockname, earnings, sell_date)
+
+    def add_stockname_ticker(self, stockname: str, ticker_symbol: str):
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_stockname_ticker(stockname, ticker_symbol)
+
+    def get_ticker_symbol(self, stockname: str):
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_ticker_symbol(stockname)
+        else:
+            return None

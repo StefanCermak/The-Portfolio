@@ -27,10 +27,14 @@ class DbSqlite:
                 end_date TEXT NOT NULL,
                 sum_buy REAL NOT NULL,
                 sum_sell REAL NOT NULL );''')
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS stock_name_ticker_names (
+                stockname TEXT PRIMARY KEY,
+                ticker_symbol TEXT NOT NULL );''')
         self.connection.commit()
 
     def get_stock_set(self):
-        self.cursor.execute('SELECT DISTINCT stockname FROM active_trades;')
+        self.cursor.execute('SELECT DISTINCT stockname FROM active_trades WHERE is_active_series == 1;')
         rows = self.cursor.fetchall()
         return {row[0] for row in rows}
 
@@ -89,6 +93,21 @@ class DbSqlite:
             WHERE stockname = ? AND is_active_series = 1;
             ''', (stockname,))
         self.connection.commit()
+
+    def add_stockname_ticker(self, stockname: str, ticker_symbol: str):
+        self.cursor.execute('''
+            INSERT OR REPLACE INTO stock_name_ticker_names (stockname, ticker_symbol)
+            VALUES (?, ?);
+        ''', (stockname, ticker_symbol))
+        self.connection.commit()
+
+    def get_ticker_symbol(self, stockname: str):
+        self.cursor.execute('SELECT ticker_symbol FROM stock_name_ticker_names WHERE stockname = ?;', (stockname,))
+        row = self.cursor.fetchone()
+        if row:
+            return row[0]
+        else:
+            return None
 
     def close(self):
         self.cursor.close()

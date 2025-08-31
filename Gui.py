@@ -6,7 +6,7 @@ import datetime
 
 import globals
 import Db
-
+import stockdata
 
 class BrokerApp:
     def __init__(self):
@@ -101,7 +101,7 @@ class BrokerApp:
     def setup_tab_sell(self):
         self.sell_label_stockname = ttk.Label(self.sell_tab, text="Stock Name:")
         self.sell_label_stockname.grid(column=0, row=0, padx=10, pady=10)
-        self.sell_combobox_stockname = ttk.Combobox(self.sell_tab, values=sorted(self.db.get_stock_set()))
+        self.sell_combobox_stockname = ttk.Combobox(self.sell_tab, values=sorted(self.db.get_stock_set()), state="readonly")
         self.sell_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
         self.sell_label_earnings = ttk.Label(self.sell_tab, text="Earnings:")
         self.sell_label_earnings.grid(column=0, row=1, padx=10, pady=10)
@@ -120,10 +120,37 @@ class BrokerApp:
         pass
 
     def setup_tab_settings(self):
-        pass
+        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab, text="Stock Name - Ticker Symbol Matching")
+        self.frame_ticker_matching.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
+        self.label_ticker_matching = ttk.Label(self.frame_ticker_matching,
+                                              text="Define how stock names are matched to ticker symbols.")
+        self.label_ticker_matching.grid(column=0, row=0, padx=10, pady=10, columnspan=4)
+        self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
+                                                                    values=sorted(self.db.get_stock_set()),
+                                                                     state="readonly")
+        self.setup_combobox_stockname_ticker_matching.grid(column=0, row=1, padx=10, pady=10)
+        self.setup_combobox_stockname_symbol_matching = ttk.Combobox(self.frame_ticker_matching,
+                                                                   values=[], state="readonly")
+        self.setup_combobox_stockname_symbol_matching.grid(column=1, row=1, padx=10, pady=10)
+
+        self.setup_label_price = ttk.Label(self.frame_ticker_matching, text="")
+        self.setup_label_price.grid(column=2, row=1, padx=10, pady=10)
+
+        self.button_store_matching = ttk.Button(self.frame_ticker_matching, text="Store Matching", command=self.store_matching)
+        self.button_store_matching.grid(column=3, row=1, padx=10, pady=10)
+
+        self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_ticker_matching_selected)
+        self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_symbol_matching_selected)
 
     def setup_tab_about(self):
         pass
+
+    def update_all_tabs(self):
+        self.update_tab_active_trades()
+        self.update_tab_trade_history()
+        self.update_tab_add_trade()
+        self.update_tab_sell()
+        self.update_tab_settings()
 
     def update_tab_active_trades(self):
         trades = self.db.get_current_stock_set()
@@ -136,23 +163,37 @@ class BrokerApp:
                 stock_summary[trade]['quantity'] += data['quantity']
                 stock_summary[trade]['invest'] += data['invest']
         for stockname in portfolio_stock_names:
+            current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
+            if current_price is not None and rate is not None:
+                current_value = f"{stock_summary[stockname]['quantity'] * current_price * rate:.2f} EUR ({stock_summary[stockname]['quantity'] * current_price:.2f} {currency})"
+            elif current_price is not None:
+                current_value = f"{stock_summary[stockname]['quantity'] * current_price:.2f} {currency}"
+            else:
+                current_value = ""
             stock_summary[stockname]['id'] = self.treeview_active_trades.insert('',
                                                                                 tk.END,
                                                                                 values=(stockname,
                                                                                         f"{stock_summary[stockname]['quantity']:.4f}",
                                                                                         f"{stock_summary[stockname]['invest']:.2f} {globals.CURRENCY}",
-                                                                                        "0.00 " + globals.CURRENCY  # Placeholder for current value
+                                                                                        current_value
                                                                                         )
                                                                                 )
         for trade, data_array in trades.items():
             sorted_data_array = sorted(data_array, key=lambda d: d['date'], reverse=True)
+            current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(trade))
             for data in sorted_data_array:
+                if current_price is not None and rate is not None:
+                    current_value = f"{data['quantity'] * current_price * rate:.2f} EUR ({data['quantity'] * current_price:.2f} {currency})"
+                elif current_price is not None:
+                    current_value = f"{data['quantity'] * current_price:.2f} {currency}"
+                else:
+                    current_value = ""
                 self.treeview_active_trades.insert(stock_summary[trade]['id'],
                                                    tk.END,
                                                    values=('📅'+data['date'].strftime(globals.DATE_FORMAT),
                                                            f"{data['quantity']:.4f}",
                                                            f"{data['invest']:.2f} {globals.CURRENCY}",
-                                                           "0.00 " + globals.CURRENCY  # Placeholder for current value
+                                                           current_value
                                                            )
                                                 )
 
@@ -184,6 +225,10 @@ class BrokerApp:
         stocknames = sorted(self.db.get_stock_set())
         self.add_combobox_stockname['values'] = stocknames
 
+    def update_tab_settings(self):
+        stocknames = sorted(self.db.get_stock_set())
+        self.setup_combobox_stockname_ticker_matching['values'] = stocknames
+
     def update_tab_sell(self):
         stocknames = sorted(self.db.get_stock_set())
         self.sell_combobox_stockname['values'] = stocknames
@@ -201,9 +246,7 @@ class BrokerApp:
         self.add_entry_invest.delete(0, tk.END)
         self.add_entry_date.set_date(datetime.date.today())
 
-        self.update_tab_add_trade()
-        self.update_tab_active_trades()
-        self.update_tab_sell()
+        self.update_all_tabs()
 
     def sell_trade(self):
         stockname = self.sell_combobox_stockname.get()
@@ -216,9 +259,41 @@ class BrokerApp:
         self.sell_entry_earnings.delete(0, tk.END)
         self.sell_entry_date.set_date(datetime.date.today())
 
-        self.update_tab_add_trade()
-        self.update_tab_active_trades()
-        self.update_tab_sell()
+        self.update_all_tabs()
+
+    def store_matching(self):
+        self.db.add_stockname_ticker(self.setup_combobox_stockname_ticker_matching.get(),
+                                     self.setup_combobox_stockname_symbol_matching.get())
+        self.update_all_tabs()
+
+    def on_setup_combobox_stockname_ticker_matching_selected(self, event):
+        stockname = self.setup_combobox_stockname_ticker_matching.get()
+        ticker_symbols = stockdata.get_ticker_symbols(stockname)
+        if ticker_symbols is None:
+            self.setup_combobox_stockname_symbol_matching['values'] = []
+            self.setup_combobox_stockname_symbol_matching.set('')
+        else:
+            self.setup_combobox_stockname_symbol_matching['values'] = ticker_symbols
+            if len(ticker_symbols) > 0:
+                used_symbol = self.db.get_ticker_symbol(stockname)
+                if used_symbol in ticker_symbols:
+                    self.setup_combobox_stockname_symbol_matching.set(used_symbol)
+                else:
+                    self.setup_combobox_stockname_symbol_matching.set(ticker_symbols[0])
+                self.on_setup_combobox_stockname_symbol_matching_selected(event)
+            else:
+                self.setup_combobox_stockname_symbol_matching.set('')
+
+    def on_setup_combobox_stockname_symbol_matching_selected(self, event):
+        ticker_symbol = self.setup_combobox_stockname_symbol_matching.get()
+        price, currency, rate = stockdata.get_stock_price(ticker_symbol)
+        if price is None:
+            self.setup_label_price['text'] = f"???"
+        else:
+            if rate is None:
+                self.setup_label_price['text'] = f"{price:.2f} {currency}"
+            else:
+                self.setup_label_price['text'] = f"{price:.2f} {currency}/{price*rate:.2f} EUR"
 
     def run(self):
         self.Window.mainloop()
