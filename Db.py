@@ -32,3 +32,7 @@ class Db:
     def add_stock_trade(self, stockname: str, quantity: float, invest: float, trade_date: datetime.date):
         if self.db_sqlite is not None:
             self.db_sqlite.add_stock_trade(stockname, quantity, invest, trade_date)
+
+    def sell_stock(self, stockname: str, earnings: float, sell_date: datetime.date):
+        if self.db_sqlite is not None:
+            self.db_sqlite.sell_stock(stockname, earnings, sell_date)

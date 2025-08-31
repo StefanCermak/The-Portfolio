@@ -53,9 +53,32 @@ class DbSqlite:
         ''', (stockname, quantity, invest, trade_date.isoformat()))
         self.connection.commit()
 
+    def sell_stock(self, stockname: str, earnings: float, sell_date: datetime.date):
+        # collect sum of invests, quantity for all active trades for this stock
+        self.cursor.execute('''
+            SELECT MIN(trade_date) as start_date, SUM(quantity) as total_quantity, SUM(invest) as total_invest
+            FROM active_trades
+            WHERE stockname = ? AND is_active_series = 1;
+        ''', (stockname,))
+        row = self.cursor.fetchone()
+        if not row or row[0] is None or row[1] is None or row[2] is None:
+            return  # no active trades for this stock
+        start_date, total_quantity, total_invest = row
+
+        self.cursor.execute('''
+            INSERT INTO trade_history (stockname, start_date, end_date, sum_buy, sum_sell)
+            VALUES (?, ?, ?, ?, ?);
+            ''', (stockname, start_date, sell_date.isoformat(), total_invest, earnings))
+        # mark all active trades for this stock as inactive
+        self.cursor.execute('''
+            UPDATE active_trades
+            SET is_active_series = 0
+            WHERE stockname = ? AND is_active_series = 1;
+            ''', (stockname,))
+        self.connection.commit()
+
     def close(self):
         self.cursor.close()
         self.connection.close()
         self.connection = None
         self.cursor = None
-

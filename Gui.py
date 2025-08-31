@@ -84,7 +84,22 @@ class BrokerApp:
         self.button_add_trade.grid(column=0, row=4, columnspan=2, padx=10, pady=10)
 
     def setup_tab_sell(self):
-        pass
+        self.sell_label_stockname = ttk.Label(self.sell_tab, text="Stock Name:")
+        self.sell_label_stockname.grid(column=0, row=0, padx=10, pady=10)
+        self.sell_combobox_stockname = ttk.Combobox(self.sell_tab, values=sorted(self.db.get_stock_set()))
+        self.sell_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
+        self.sell_label_earnings = ttk.Label(self.sell_tab, text="Earnings:")
+        self.sell_label_earnings.grid(column=0, row=1, padx=10, pady=10)
+        self.sell_entry_earnings = ttk.Entry(self.sell_tab)
+        self.sell_entry_earnings.grid(column=1, row=1, padx=10, pady=10)
+        self.sell_label_date = ttk.Label(self.sell_tab, text="Sell Date:")
+        self.sell_label_date.grid(column=0, row=2, padx=10, pady=10)
+        self.sell_entry_date = DateEntry(self.sell_tab, width=12, background='darkblue',
+                                         foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
+                                         year=datetime.date.today().year, date=datetime.date.today())
+        self.sell_entry_date.grid(column=1, row=2, padx=10, pady=10)
+        self.button_sell = ttk.Button(self.sell_tab, text="Sell", command=self.sell_trade)
+        self.button_sell.grid(column=0, row=3, columnspan=2, padx=10, pady=10)
 
     def setup_tab_statistics(self):
         pass
@@ -130,6 +145,10 @@ class BrokerApp:
         stocknames = sorted(self.db.get_stock_set())
         self.add_combobox_stockname['values'] = stocknames
 
+    def update_tab_sell(self):
+        stocknames = sorted(self.db.get_stock_set())
+        self.sell_combobox_stockname['values'] = stocknames
+
     def add_trade(self):
         stockname = self.add_combobox_stockname.get()
         quantity = float(self.add_entry_quantity.get().replace(',', '.'))
@@ -145,6 +164,22 @@ class BrokerApp:
 
         self.update_tab_add_trade()
         self.update_tab_active_trades()
+        self.update_tab_sell()
+
+    def sell_trade(self):
+        stockname = self.sell_combobox_stockname.get()
+        earnings = float(self.sell_entry_earnings.get().replace(',', '.'))
+        sell_date = self.sell_entry_date.get_date()
+
+        self.db.sell_stock(stockname, earnings, sell_date)
+
+        self.sell_combobox_stockname.set('')
+        self.sell_entry_earnings.delete(0, tk.END)
+        self.sell_entry_date.set_date(datetime.date.today())
+
+        self.update_tab_add_trade()
+        self.update_tab_active_trades()
+        self.update_tab_sell()
 
     def run(self):
         self.Window.mainloop()
