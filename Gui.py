@@ -27,7 +27,7 @@ class BrokerApp:
         self.tab_control.add(self.active_trades_tab, text='Active Trades')
         self.tab_control.add(self.trade_history_tab, text='Trade History')
         self.tab_control.add(self.add_trade_tab, text='Add Trade')
-        self.tab_control.add(self.sell_tab, text='Sell')
+        self.tab_control.add(self.sell_tab, text='Sell Stock')
         self.tab_control.add(self.statistics_tab, text='Statistics')
         self.tab_control.add(self.settings_tab, text='Settings')
         self.tab_control.add(self.about_tab, text='About')
@@ -59,7 +59,22 @@ class BrokerApp:
         self.update_tab_active_trades()
 
     def setup_tab_trade_history(self):
-        pass
+        self.trade_history_tab.columnconfigure(0, weight=1)
+        self.trade_history_tab.rowconfigure(0, weight=1)
+        self.treeview_trade_history = ttk.Treeview(
+            self.trade_history_tab,
+            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell"),
+            show='tree headings'
+        )
+        self.treeview_trade_history.heading("Stock Name", text="Stock Name")
+        self.treeview_trade_history.heading("Start Date", text="Start Date")
+        self.treeview_trade_history.heading("End Date", text="End Date")
+        self.treeview_trade_history.heading("Sum Buy", text="Sum Buy")
+        self.treeview_trade_history.heading("Sum Sell", text="Sum Sell")
+        self.treeview_trade_history.column("#0", width=30, stretch=False)
+        self.treeview_trade_history.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
+
+        self.update_tab_trade_history()
 
     def setup_tab_add_trade(self):
         self.add_label_stockname = ttk.Label(self.add_trade_tab, text="Stock Name:")
@@ -98,7 +113,7 @@ class BrokerApp:
                                          foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
                                          year=datetime.date.today().year, date=datetime.date.today())
         self.sell_entry_date.grid(column=1, row=2, padx=10, pady=10)
-        self.button_sell = ttk.Button(self.sell_tab, text="Sell", command=self.sell_trade)
+        self.button_sell = ttk.Button(self.sell_tab, text="Sell Stock", command=self.sell_trade)
         self.button_sell.grid(column=0, row=3, columnspan=2, padx=10, pady=10)
 
     def setup_tab_statistics(self):
@@ -140,6 +155,30 @@ class BrokerApp:
                                                            "0.00 " + globals.CURRENCY  # Placeholder for current value
                                                            )
                                                 )
+
+    def update_tab_trade_history(self):
+        trades = self.db.get_history_stock_set()
+        for item in self.treeview_trade_history.get_children():
+            self.treeview_trade_history.delete(item)
+        portfolio_stock_names = sorted(trades.keys())
+        for stockname in portfolio_stock_names:
+            stock_id = self.treeview_trade_history.insert('',
+                                                          tk.END,
+                                                          values=(stockname, '', '', '', '')
+                                                          )
+            data_array = trades[stockname]
+            sorted_data_array = sorted(data_array, key=lambda d: d['end_date'], reverse=True)
+            for data in sorted_data_array:
+                self.treeview_trade_history.insert(stock_id,
+                                                  tk.END,
+                                                  values=(
+                                                      '',
+                                                      data['start_date'].strftime(globals.DATE_FORMAT),
+                                                      data['end_date'].strftime(globals.DATE_FORMAT),
+                                                      f"{data['sum_buy']:.2f} {globals.CURRENCY}",
+                                                      f"{data['sum_sell']:.2f} {globals.CURRENCY}"
+                                                  )
+                                                  )
 
     def update_tab_add_trade(self):
         stocknames = sorted(self.db.get_stock_set())

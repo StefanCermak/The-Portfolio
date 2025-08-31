@@ -46,6 +46,19 @@ class DbSqlite:
 
         return dataset
 
+    def get_history_stock_set(self):
+        self.cursor.execute('SELECT stockname, start_date, end_date, sum_buy, sum_sell FROM trade_history')
+        rows = self.cursor.fetchall()
+        dataset = dict()
+        for row in rows:
+            if row[0] not in dataset:
+                dataset[row[0]] = []
+            dataset[row[0]].append({'start_date': datetime.date.fromisoformat(row[1]),
+                                   'end_date': datetime.date.fromisoformat(row[2]),
+                                   'sum_buy': row[3],
+                                   'sum_sell': row[4]})
+        return dataset
+
     def add_stock_trade(self, stockname: str, quantity: float, invest: float, trade_date: datetime.date):
         self.cursor.execute('''
             INSERT INTO active_trades (stockname, quantity, invest, trade_date, is_active_series)
