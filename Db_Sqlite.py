@@ -75,6 +75,15 @@ class DbSqlite:
         return dataset
 
     def add_stock_trade(self, ticker_symbol: str, quantity: float, invest: float, trade_date: datetime.date):
+        # query duplicate trades
+        self.cursor.execute('''
+            SELECT trade_id FROM active_trades
+            WHERE ticker_symbol = ? AND quantity = ? AND invest = ? AND trade_date = ? AND is_active_series = 1;'''
+            , (ticker_symbol, quantity, invest, trade_date.isoformat()))
+        row = self.cursor.fetchone()
+        if row:
+            return  # duplicate trade, do nothing
+        # insert new trade
         self.cursor.execute('''
             INSERT INTO active_trades (ticker_symbol, quantity, invest, trade_date, is_active_series)
             VALUES (?, ?, ?, ?, 1);
@@ -122,6 +131,59 @@ class DbSqlite:
             return row[0]
         else:
             return None
+
+    def find_closed_trades(self):
+        def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):
+            self.cursor.execute('''update active_trades
+                set is_active_series = 0
+                where trade_id in (
+                    select a.trade_id
+                    from active_trades a
+                    join stock_name_ticker_names s on a.ticker_symbol = s.ticker_symbol
+                    where s.stockname = ? and a.is_active_series = 1
+                    order by a.trade_date asc
+                    limit (
+                        select count(*)
+                        from active_trades a2
+                        join stock_name_ticker_names s2 on a2.ticker_symbol = s2.ticker_symbol
+                        where s2.stockname = ? and a2.is_active_series = 1
+                    )
+                );''', (stockname, stockname))
+            self.cursor.execute('''
+                INSERT INTO trade_history (ticker_symbol, start_date, end_date, sum_buy, sum_sell)
+                VALUES (?, ?, ?, ?, ?);
+            ''', (self.get_ticker_symbol(stockname), start_date.isoformat(), end_date.isoformat(), total_money_spend, total_money_earned)
+            )
+
+        for Stock in self.get_stock_set():
+            self.cursor.execute('''
+                SELECT a.quantity, a.invest, a.trade_date
+                FROM active_trades a
+                JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
+                WHERE s.stockname = ? AND a.is_active_series = 1
+                ORDER BY a.trade_date ASC;
+            ''', (Stock,))
+            rows = self.cursor.fetchall()
+            total_quantity = 0.0
+            total_money_spend = 0.0
+            total_money_earnerd = 0.0
+            start_date = None
+            for row in rows:
+                if start_date is None:
+                    start_date = datetime.date.fromisoformat(row[2])
+                total_quantity += row[0]
+                if row[0] > 0:
+                    total_money_spend += row[1]
+                else:
+                    total_money_earnerd -= row[1]
+                if abs(total_quantity) < 0.0001:
+                    # all shares sold, move to history
+                    close_trade_series( Stock, total_money_earnerd, total_money_spend, start_date, datetime.date.fromisoformat(row[2]))
+                    total_quantity = 0.0
+                    total_money_spend = 0.0
+                    total_money_earnerd = 0.0
+                    start_date = None
+        self.connection.commit()
 
     def close(self):
         self.cursor.close()

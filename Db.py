@@ -47,6 +47,10 @@ class Db:
         if self.db_sqlite is not None:
             self.db_sqlite.add_stockname_ticker(stockname, ticker_symbol)
 
+    def find_closed_trades(self):
+        if self.db_sqlite is not None:
+            self.db_sqlite.find_closed_trades()
+
     def get_ticker_symbol(self, stockname: str):
         if self.db_sqlite is not None:
             return self.db_sqlite.get_ticker_symbol(stockname)

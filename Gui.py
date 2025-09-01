@@ -1,5 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+from tkinter import filedialog
+
 from tkcalendar import DateEntry
 
 import datetime
@@ -7,6 +9,11 @@ import datetime
 import globals
 import Db
 import stockdata
+import tools
+import import_account_statements
+
+
+
 
 class BrokerApp:
     def __init__(self):
@@ -127,13 +134,13 @@ class BrokerApp:
         pass
 
     def setup_tab_settings(self):
-        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab, text="Stock Name - Ticker Symbol Matching")
+        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab, text="Ticker Symbol <-> Personal Stock Name Matching")
         self.frame_ticker_matching.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
         self.label_ticker_matching = ttk.Label(self.frame_ticker_matching,
-                                              text="Define how stock names are matched to ticker symbols.")
+                                               text="Select the Stock Name to be shown instead of the Ticker Symbol")
         self.label_ticker_matching.grid(column=0, row=0, padx=10, pady=10, columnspan=4)
         self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
-                                                                    values=sorted(self.db.get_stock_set()),
+                                                                     values=sorted(self.db.get_stock_set()),
                                                                      state="readonly")
         self.setup_combobox_stockname_ticker_matching.grid(column=0, row=1, padx=10, pady=10)
         self.setup_combobox_stockname_symbol_matching = ttk.Combobox(self.frame_ticker_matching,
@@ -148,6 +155,24 @@ class BrokerApp:
 
         self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_ticker_matching_selected)
         self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_symbol_matching_selected)
+
+        self.frame_import_account_statements = ttk.LabelFrame(self.settings_tab, text="Import Account Statements")
+        self.frame_import_account_statements.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+        self.label_import_account_statements_folder = ttk.Label(self.frame_import_account_statements,
+                                                                text="Import account statements from PDF files in a folder:")
+        self.label_import_account_statements_folder.grid(column=0, row=0, padx=10, pady=10)
+        self.strvar_import_account_statements_folder_path = tk.StringVar()
+        self.entry_import_account_statements_folder_path = ttk.Entry(self.frame_import_account_statements,
+                                                                    textvariable=self.strvar_import_account_statements_folder_path, width=50)
+        self.entry_import_account_statements_folder_path.grid(column=1, row=0, padx=10, pady=10)
+        self.button_browse_import_account_statements_folder = ttk.Button(self.frame_import_account_statements,
+                                                                 text="Browse", command=self.browse_import_account_statements_folder)
+        self.button_browse_import_account_statements_folder.grid(column=2, row=0, padx=10, pady=10)
+        self.button_import_account_statements = ttk.Button(self.frame_import_account_statements,
+                                                          text="Import Account Statements", command=self.import_account_statements)
+        self.button_import_account_statements.grid(column=0, row=1, columnspan=3, padx=10, pady=10)
+        if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG["account_statements_folder"] != "":
+            self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
 
     def setup_tab_about(self):
         pass
@@ -275,16 +300,36 @@ class BrokerApp:
                                      self.setup_combobox_stockname_symbol_matching.get())
         self.update_all_tabs()
 
+    def browse_import_account_statements_folder(self):
+        folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
+        if folder_path:
+            folder_path = tools.path_smart_shorten(folder_path)
+            self.strvar_import_account_statements_folder_path.set(folder_path)
+            globals.USER_CONFIG["account_statements_folder"] = folder_path
+            globals.save_user_config()
+
+    def import_account_statements(self):
+        folder_path = self.strvar_import_account_statements_folder_path.get()
+        if folder_path:
+            print(f"Importing account statements from folder: {folder_path}")
+            import_account_statements.from_folder(folder_path, self.db)
+            print("Import completed.")
+            self.update_all_tabs()
+
     def on_add_combobox_stockname_selected(self, event):
         stockname = self.add_combobox_stockname.get()
         ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
-        self.add_combobox_ticker['values'] = ticker_symbols
-        if len(ticker_symbols) > 0:
-            used_symbol = self.db.get_ticker_symbol(stockname)
-            if used_symbol in ticker_symbols:
-                self.add_combobox_ticker.set(used_symbol)
-            else:
-                self.add_combobox_ticker.set(ticker_symbols[0])
+        if ticker_symbols is None:
+            self.add_combobox_ticker['values'] = []
+            self.add_combobox_ticker.set('')
+        else:
+            self.add_combobox_ticker['values'] = ticker_symbols
+            if len(ticker_symbols) > 0:
+                used_symbol = self.db.get_ticker_symbol(stockname)
+                if used_symbol in ticker_symbols:
+                    self.add_combobox_ticker.set(used_symbol)
+                else:
+                    self.add_combobox_ticker.set(ticker_symbols[0])
 
     def on_setup_combobox_stockname_ticker_matching_selected(self, event):
         stockname = self.setup_combobox_stockname_ticker_matching.get()
