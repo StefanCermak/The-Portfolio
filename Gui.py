@@ -81,6 +81,10 @@ class BrokerApp:
         self.add_label_stockname.grid(column=0, row=0, padx=10, pady=10)
         self.add_combobox_stockname = ttk.Combobox(self.add_trade_tab, values=sorted(self.db.get_stock_set()))
         self.add_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
+        self.add_label_ticker = ttk.Label(self.add_trade_tab, text="Ticker:")
+        self.add_label_ticker.grid(column=4, row=0, padx=10, pady=10)
+        self.add_combobox_ticker = ttk.Combobox(self.add_trade_tab, values=[])
+        self.add_combobox_ticker.grid(column=5, row=0, padx=10, pady=10)
         self.add_label_quantity = ttk.Label(self.add_trade_tab, text="Quantity:")
         self.add_label_quantity.grid(column=0, row=1, padx=10, pady=10)
         self.add_entry_quantity = ttk.Entry(self.add_trade_tab)
@@ -97,6 +101,9 @@ class BrokerApp:
         self.add_entry_date.grid(column=1, row=3, padx=10, pady=10)
         self.button_add_trade = ttk.Button(self.add_trade_tab, text="Add Trade", command=self.add_trade)
         self.button_add_trade.grid(column=0, row=4, columnspan=2, padx=10, pady=10)
+
+        self.add_combobox_stockname.bind("<<ComboboxSelected>>", self.on_add_combobox_stockname_selected)
+        self.add_combobox_stockname.bind("<FocusOut>", self.on_add_combobox_stockname_selected)
 
     def setup_tab_sell(self):
         self.sell_label_stockname = ttk.Label(self.sell_tab, text="Stock Name:")
@@ -235,11 +242,13 @@ class BrokerApp:
 
     def add_trade(self):
         stockname = self.add_combobox_stockname.get()
+        ticker_symbol = self.add_combobox_ticker.get()
         quantity = float(self.add_entry_quantity.get().replace(',', '.'))
         price = float(self.add_entry_invest.get().replace(',', '.'))
         trade_date = self.add_entry_date.get_date()
 
-        self.db.add_stock_trade(stockname, quantity, price, trade_date)
+        self.db.add_stockname_ticker(stockname, ticker_symbol)
+        self.db.add_stock_trade(ticker_symbol, quantity, price, trade_date)
 
         self.add_combobox_stockname.set('')
         self.add_entry_quantity.delete(0, tk.END)
@@ -266,9 +275,20 @@ class BrokerApp:
                                      self.setup_combobox_stockname_symbol_matching.get())
         self.update_all_tabs()
 
+    def on_add_combobox_stockname_selected(self, event):
+        stockname = self.add_combobox_stockname.get()
+        ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
+        self.add_combobox_ticker['values'] = ticker_symbols
+        if len(ticker_symbols) > 0:
+            used_symbol = self.db.get_ticker_symbol(stockname)
+            if used_symbol in ticker_symbols:
+                self.add_combobox_ticker.set(used_symbol)
+            else:
+                self.add_combobox_ticker.set(ticker_symbols[0])
+
     def on_setup_combobox_stockname_ticker_matching_selected(self, event):
         stockname = self.setup_combobox_stockname_ticker_matching.get()
-        ticker_symbols = stockdata.get_ticker_symbols(stockname)
+        ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
         if ticker_symbols is None:
             self.setup_combobox_stockname_symbol_matching['values'] = []
             self.setup_combobox_stockname_symbol_matching.set('')

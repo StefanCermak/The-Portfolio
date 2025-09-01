@@ -1,10 +1,45 @@
+from functools import lru_cache,wraps
+import datetime
+import time
+
 import yfinance as yf
 import yahooquery
-import datetime
+
+
+def timed_cache(ttl_seconds=300):
+    """
+    Decorator für zeitbasiertes Caching.
+    Speichert das Ergebnis einer Funktion für ttl_seconds Sekunden.
+
+    Args:
+        ttl_seconds (int): Lebensdauer des Cache in Sekunden
+
+    Returns:
+        Decorated function
+    """
+    def decorator(func):
+        cache = {}
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
+            now = time.time()
+
+            # Cache vorhanden und gültig?
+            if key in cache:
+                result, timestamp = cache[key]
+                if now - timestamp < ttl_seconds:
+                    return result
+
+            # Neu berechnen und speichern
+            result = func(*args, **kwargs)
+            cache[key] = (result, now)
+            return result
+        return wrapper
+    return decorator
 
 stock_price_cache = {}
 
-
+@timed_cache(ttl_seconds=300)  # 5 Minuten Cache
 def get_usd_to_eur_rate():
     """
     Holt den aktuellen USD/EUR-Wechselkurs von Yahoo Finance.
@@ -26,7 +61,7 @@ def get_usd_to_eur_rate():
 
         return None
 
-
+@timed_cache(ttl_seconds=300)  # 5 Minuten Cache
 def get_stock_price(ticker_symbol):
     """
     Fetch the current stock price for the given ticker symbol using yfinance.
@@ -61,8 +96,8 @@ def get_stock_price(ticker_symbol):
     except Exception as e:
         return (None, None, None)
 
-
-def get_ticker_symbols(company_name):
+@lru_cache(maxsize=128)
+def get_ticker_symbols_from_name(company_name):
     """
     Fetch the ticker symbol for a given company name using yahooquery.
 
@@ -81,3 +116,35 @@ def get_ticker_symbols(company_name):
             return None
     except Exception as e:
         return None
+
+@lru_cache(maxsize=128)
+def get_ticker_symbol_name_from_isin(isin):
+    """
+    Fetch the ticker symbol for a given ISIN using yahooquery.
+
+    Args:
+        isin (str): The ISIN (e.g., 'US0378331005' for Apple Inc.).
+
+    Returns:
+        str: The ticker symbol if found, otherwise None.
+    """
+    try:
+        search = yahooquery.search(isin)
+        if search and 'quotes' in search and len(search['quotes']) > 0:
+            for quote in search['quotes']:
+                if 'symbol' in quote and quote['symbol']:
+                    return quote['symbol']
+        return None
+    except Exception as e:
+        return None
+
+
+if __name__ == "__main__":
+    # Beispielaufrufe der Funktionen
+    print( "get_usd_to_eur_rate():", get_usd_to_eur_rate() )
+    print( "get_ticker_symbols_from_name('Apple Inc.'):", get_ticker_symbols_from_name("Apple Inc.") )
+    print( "get_ticker_symbol_name_from_isin('US0378331005'):", get_ticker_symbol_name_from_isin("US0378331005") )
+    print( "get_stock_price('AAPL'):", get_stock_price("AAPL") )
+
+
+
