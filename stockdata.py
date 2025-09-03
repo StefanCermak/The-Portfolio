@@ -1,10 +1,12 @@
-from functools import lru_cache,wraps
+from functools import wraps
+import os
+import json
+import hashlib
 import datetime
 import time
 
 import yfinance as yf
 import yahooquery
-
 
 def timed_cache(ttl_seconds=300):
     """
@@ -37,10 +39,50 @@ def timed_cache(ttl_seconds=300):
         return wrapper
     return decorator
 
-stock_price_cache = {}
+def persistent_cache(cache_file="persistent_cache.json"):
+    """
+    Decorator für persistenten Datei-Cache.
+    Speichert Funktionsaufrufe und deren Ergebnisse in einer JSON-Datei.
+
+    Args:
+        cache_file (str): Pfad zur Cache-Datei
+
+    Returns:
+        Decorated function
+    """
+    # Cache laden
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r") as f:
+                cache = json.load(f)
+        except json.JSONDecodeError:
+            cache = {}
+    else:
+        cache = {}
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Schlüssel generieren (hashbar, auch bei komplexen args)
+            key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=str)
+            key = hashlib.sha256(key_raw.encode()).hexdigest()
+
+            if key in cache:
+                return cache[key]
+
+            result = func(*args, **kwargs)
+            cache[key] = result
+
+            # Cache speichern
+            with open(cache_file, "w") as f:
+                json.dump(cache, f)
+
+            return result
+        return wrapper
+    return decorator
 
 @timed_cache(ttl_seconds=300)  # 5 Minuten Cache
-def get_usd_to_eur_rate(from_currency = "USD"):
+def get_currency_to_eur_rate(from_currency ="USD"):
     """
     Holt den aktuellen Wechselkurs nach Euro von Yahoo Finance.
 
@@ -72,8 +114,6 @@ def get_stock_price(ticker_symbol):
     Returns:
         float: The current stock price, or None if the ticker symbol is invalid or data is unavailable.
     """
-    if ticker_symbol in stock_price_cache and (datetime.datetime.now() - stock_price_cache[ticker_symbol]['timestamp']).seconds < 300:
-        return stock_price_cache[ticker_symbol]['data']
 
     try:
         ticker = yf.Ticker(ticker_symbol)
@@ -84,19 +124,15 @@ def get_stock_price(ticker_symbol):
 
         # USD in EUR umrechnen, falls nötig
         if current_price is not None and currency != "EUR":
-            to_eur = get_usd_to_eur_rate(currency)
+            to_eur = get_currency_to_eur_rate(currency)
             if to_eur is not None:
                 rate = to_eur
-        stock_price_cache [ticker_symbol] = {
-            'data': (current_price, currency, rate),
-            'timestamp': datetime.datetime.now()
-        }
 
         return (current_price, currency, rate)
     except Exception as e:
         return (None, None, None)
 
-@lru_cache(maxsize=128)
+@persistent_cache("get_ticker_symbols_from_name.json")
 def get_ticker_symbols_from_name(company_name):
     """
     Fetch the ticker symbol for a given company name using yahooquery.
@@ -117,7 +153,7 @@ def get_ticker_symbols_from_name(company_name):
     except Exception as e:
         return None
 
-@lru_cache(maxsize=128)
+@persistent_cache("get_ticker_symbol_name_from_isin.json")
 def get_ticker_symbol_name_from_isin(isin):
     """
     Fetch the ticker symbol for a given ISIN using yahooquery.
