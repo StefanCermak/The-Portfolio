@@ -40,23 +40,23 @@ def timed_cache(ttl_seconds=300):
 stock_price_cache = {}
 
 @timed_cache(ttl_seconds=300)  # 5 Minuten Cache
-def get_usd_to_eur_rate():
+def get_usd_to_eur_rate(from_currency = "USD"):
     """
-    Holt den aktuellen USD/EUR-Wechselkurs von Yahoo Finance.
+    Holt den aktuellen Wechselkurs nach Euro von Yahoo Finance.
 
     Returns:
         float: Der aktuelle Wechselkurs oder 0.0 bei Fehler.
     """
     try:
-        fx = yahooquery.Ticker('EURUSD=X')
-        rate = fx.price.get("EURUSD=X", {}).get("regularMarketPrice", None)
+        fx = yahooquery.Ticker(f'EUR{from_currency}=X')
+        rate = fx.price.get(f"EUR{from_currency}=X", {}).get("regularMarketPrice", None)
         if rate:
             # EUR/USD -> 1 EUR = rate USD, also 1 USD = 1/rate EUR
             return round(1 / rate, 4)
         else:
             return None
     except Exception as e:
-        print("oh oh, konnte USD/EUR Kurs nicht holen")
+        print(f"oh oh, konnte {from_currency}/EUR Kurs nicht holen")
         print(e)
 
         return None
@@ -83,10 +83,10 @@ def get_stock_price(ticker_symbol):
         rate = None
 
         # USD in EUR umrechnen, falls nötig
-        if current_price is not None and currency == "USD":
-            usd_to_eur = get_usd_to_eur_rate()
-            if usd_to_eur is not None:
-                rate = usd_to_eur
+        if current_price is not None and currency != "EUR":
+            to_eur = get_usd_to_eur_rate(currency)
+            if to_eur is not None:
+                rate = to_eur
         stock_price_cache [ticker_symbol] = {
             'data': (current_price, currency, rate),
             'timestamp': datetime.datetime.now()

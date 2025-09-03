@@ -53,15 +53,28 @@ class BrokerApp:
         self.active_trades_tab.rowconfigure(0, weight=1)
         self.treeview_active_trades = ttk.Treeview(
             self.active_trades_tab,
-            columns=("Stock Name", "Quantity", "Invest", "Now"),
+            columns=("Stock Name", "Quantity", "Invest", "Now", "Profit"),
             show='tree headings'
         )
         self.treeview_active_trades.heading("Stock Name", text="Stock Name")
         self.treeview_active_trades.heading("Quantity", text="Quantity")
         self.treeview_active_trades.heading("Invest", text="Invest")
         self.treeview_active_trades.heading("Now", text="Now")
+        self.treeview_active_trades.heading("Profit", text="Profit")
         self.treeview_active_trades.column("#0", width=30, stretch=False)
+        #set Quantity column width to 12 characters, so that the quantity fits in the column, disable stretching
+        self.treeview_active_trades.column("Quantity", width=120, stretch=False)
+        #set Invest column width to 15 characters, so that the amount fits in the column, disable stretching
+        self.treeview_active_trades.column("Invest", width=150, stretch=False)
+        #set Now column width to 32 characters, so that the amount fits in the column, disable stretching
+        self.treeview_active_trades.column("Now", width=200, stretch=False)
+        #set Profit column width to 20 characters, so that the amount fits in the column, disable stretching
+        self.treeview_active_trades.column("Profit", width=200, stretch=False)
+
         self.treeview_active_trades.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
+        self.treeview_active_trades.tag_configure('profit_positive', foreground='green')
+        self.treeview_active_trades.tag_configure('profit_negative', foreground='red')
+        self.treeview_active_trades.tag_configure('neutral', foreground='blue')
 
         self.update_tab_active_trades()
 
@@ -70,7 +83,7 @@ class BrokerApp:
         self.trade_history_tab.rowconfigure(0, weight=1)
         self.treeview_trade_history = ttk.Treeview(
             self.trade_history_tab,
-            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell"),
+            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell", "Profit", "Profit %", "Profit %(Year"),
             show='tree headings'
         )
         self.treeview_trade_history.heading("Stock Name", text="Stock Name")
@@ -78,8 +91,20 @@ class BrokerApp:
         self.treeview_trade_history.heading("End Date", text="End Date")
         self.treeview_trade_history.heading("Sum Buy", text="Sum Buy")
         self.treeview_trade_history.heading("Sum Sell", text="Sum Sell")
+        self.treeview_trade_history.heading("Profit", text="Profit")
+        self.treeview_trade_history.heading("Profit %", text="Profit %")
+        self.treeview_trade_history.heading("Profit %(Year", text="Profit %(Year)")
         self.treeview_trade_history.column("#0", width=30, stretch=False)
+        #set Start Date and End Date column width to 12 characters, so that the date fits in the column, disable stretching
+        self.treeview_trade_history.column("Start Date", width=100, stretch=False)
+        self.treeview_trade_history.column("End Date", width=100, stretch=False)
+        #set Sum Buy and Sum Sell column width to 15 characters, so that the amount fits in the column, disable stretching
+        self.treeview_trade_history.column("Sum Buy", width=120, stretch=False)
+        self.treeview_trade_history.column("Sum Sell", width=120, stretch=False)
         self.treeview_trade_history.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
+        self.treeview_trade_history.tag_configure('profit_positive', foreground='green')
+        self.treeview_trade_history.tag_configure('profit_negative', foreground='red')
+        self.treeview_trade_history.tag_configure('neutral', foreground='blue')
 
         self.update_tab_trade_history()
 
@@ -197,30 +222,62 @@ class BrokerApp:
         for stockname in portfolio_stock_names:
             current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
             if current_price is not None and rate is not None:
-                current_value = f"{stock_summary[stockname]['quantity'] * current_price * rate:.2f} EUR ({stock_summary[stockname]['quantity'] * current_price:.2f} {currency})"
+                euro = stock_summary[stockname]['quantity'] * current_price * rate
+                current_value = f"{euro:.2f} EUR ({stock_summary[stockname]['quantity'] * current_price:.2f} {currency})"
+                earnings_eur = (euro - stock_summary[stockname]['invest'])
+                profit_text = f"{earnings_eur:.2f} EUR ({earnings_eur / stock_summary[stockname]['invest'] * 100:.2f} %)"
             elif current_price is not None:
-                current_value = f"{stock_summary[stockname]['quantity'] * current_price:.2f} {currency}"
+                euro = stock_summary[stockname]['quantity'] * current_price
+                current_value = f"{euro:.2f} {currency}"
+                earnings_eur = (euro - stock_summary[stockname]['invest'])
+                profit_text = f"{earnings_eur:.2f} {currency} ({earnings_eur / stock_summary[stockname]['invest'] * 100:.2f} %)"
             else:
                 current_value = ""
+                earnings_eur = None
+                profit_text = ""
+
+            tag = 'neutral'
+            if earnings_eur is not None:
+                if earnings_eur > 0.01:
+                    tag = 'profit_positive'
+                elif earnings_eur < 0.01:
+                    tag = 'profit_negative'
+
             stock_summary[stockname]['id'] = self.treeview_active_trades.insert('',
                                                                                 tk.END,
                                                                                 values=(stockname,
                                                                                         f"{stock_summary[stockname]['quantity']:.4f}",
                                                                                         f"{stock_summary[stockname]['invest']:.2f} {globals.CURRENCY}",
-                                                                                        current_value
+                                                                                        current_value,
+                                                                                        profit_text
                                                                                         )
                                                                                 )
+            self.treeview_active_trades.item(stock_summary[stockname]['id'], tags=(tag,))
+
         for trade, data_array in trades.items():
             sorted_data_array = sorted(data_array, key=lambda d: d['date'], reverse=True)
-            current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(trade))
+            current_stock_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(trade))
             for data in sorted_data_array:
-                if current_price is not None and rate is not None:
-                    current_value = f"{data['quantity'] * current_price * rate:.2f} EUR ({data['quantity'] * current_price:.2f} {currency})"
-                elif current_price is not None:
-                    current_value = f"{data['quantity'] * current_price:.2f} {currency}"
+                if current_stock_price is not None and rate is not None:
+                    current_price = data['quantity'] * current_stock_price * rate
+                    current_value = f"{current_price:.2f} EUR ({data['quantity'] * current_stock_price:.2f} {currency})"
+                    earnings_eur = (current_price - data['invest'])
+                elif current_stock_price is not None:
+                    current_price = data['quantity'] * current_stock_price
+                    current_value = f"{current_price:.2f} {currency}"
+                    earnings_eur = (current_price - data['invest'])
                 else:
                     current_value = ""
-                self.treeview_active_trades.insert(stock_summary[trade]['id'],
+                    earnings_eur = None
+
+                tag = 'neutral'
+                if earnings_eur is not None:
+                    if earnings_eur > 0.01:
+                        tag = 'profit_positive'
+                    elif earnings_eur < -0.01:
+                        tag = 'profit_negative'
+
+                id = self.treeview_active_trades.insert(stock_summary[trade]['id'],
                                                    tk.END,
                                                    values=('📅'+data['date'].strftime(globals.DATE_FORMAT),
                                                            f"{data['quantity']:.4f}",
@@ -228,6 +285,7 @@ class BrokerApp:
                                                            current_value
                                                            )
                                                 )
+                self.treeview_active_trades.item(id, tags=(tag,))
 
     def update_tab_trade_history(self):
         trades = self.db.get_history_stock_set()
@@ -241,17 +299,41 @@ class BrokerApp:
                                                           )
             data_array = trades[stockname]
             sorted_data_array = sorted(data_array, key=lambda d: d['end_date'], reverse=True)
+            sum_profit = 0.0
             for data in sorted_data_array:
-                self.treeview_trade_history.insert(stock_id,
+                profit_eur = data['sum_sell'] - data['sum_buy']
+                profit_percent = (profit_eur / data['sum_buy'] * 100) if data['sum_buy'] != 0 else 0.0
+                days_held = (data['end_date'] - data['start_date']).days
+                # tages prozensatz = (1 + gesamtprozentsatz)^(1/anzahltage) - 1
+                profit_percent_per_day = ( (1 + profit_percent / 100) ** (1/days_held) - 1 ) * 100 if days_held > 0 else 0.0
+                # Jahres prozensatz = (1 + tagesprozentsatz)^365 - 1
+                profit_percent_per_year = ( (1 + profit_percent_per_day / 100) ** 365 - 1 ) * 100 if days_held > 0 else 0.0
+                tag = 'neutral'
+                if profit_eur > 0.01:
+                    tag = 'profit_positive'
+                elif profit_eur < -0.01:
+                    tag = 'profit_negative'
+                line = self.treeview_trade_history.insert(stock_id,
                                                   tk.END,
                                                   values=(
                                                       '',
                                                       data['start_date'].strftime(globals.DATE_FORMAT),
                                                       data['end_date'].strftime(globals.DATE_FORMAT),
                                                       f"{data['sum_buy']:.2f} {globals.CURRENCY}",
-                                                      f"{data['sum_sell']:.2f} {globals.CURRENCY}"
+                                                      f"{data['sum_sell']:.2f} {globals.CURRENCY}",
+                                                      f"{profit_eur:.2f} {globals.CURRENCY}",
+                                                      f"{profit_percent:.2f} %",
+                                                      f"{profit_percent_per_year:.2f} %"
                                                   )
                                                   )
+                self.treeview_trade_history.item(line, tags=(tag,))
+                sum_profit += profit_eur
+            tag = 'neutral'
+            if sum_profit > 0.01:
+                tag = 'profit_positive'
+            elif sum_profit < -0.01:
+                tag = 'profit_negative'
+            self.treeview_trade_history.item(stock_id, tags=(tag,))
 
     def update_tab_add_trade(self):
         stocknames = sorted(self.db.get_stock_set())
