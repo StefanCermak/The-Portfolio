@@ -78,7 +78,7 @@ class DbSqlite:
         # query duplicate trades
         self.cursor.execute('''
             SELECT trade_id FROM active_trades
-            WHERE ticker_symbol = ? AND quantity = ? AND invest = ? AND trade_date = ? AND is_active_series = 1;'''
+            WHERE ticker_symbol = ? AND quantity = ? AND invest = ? AND trade_date = ?;'''
             , (ticker_symbol, quantity, invest, trade_date.isoformat()))
         row = self.cursor.fetchone()
         if row:
