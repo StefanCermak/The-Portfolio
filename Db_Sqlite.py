@@ -117,9 +117,10 @@ class DbSqlite:
             ''', (ticker_symbol,))
         self.connection.commit()
 
-    def add_stockname_ticker(self, stockname: str, ticker_symbol: str):
-        self.cursor.execute('''
-            INSERT OR REPLACE INTO stock_name_ticker_names (ticker_symbol, stockname)
+    def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: True):
+        command = 'INSERT OR REPLACE' if replace_existing else 'INSERT OR IGNORE'
+        self.cursor.execute(f'''
+            {command} INTO stock_name_ticker_names (ticker_symbol, stockname)
             VALUES (?, ?);
         ''', (ticker_symbol, stockname))
         self.connection.commit()
@@ -131,6 +132,20 @@ class DbSqlite:
             return row[0]
         else:
             return None
+
+    def get_stockname(self, ticker_symbol: str):
+        self.cursor.execute('SELECT stockname FROM stock_name_ticker_names WHERE ticker_symbol = ?;', (ticker_symbol,))
+        row = self.cursor.fetchone()
+        if row:
+            return row[0]
+        else:
+            return None
+
+    def get_stocknames_with_tickers(self):
+        self.cursor.execute('SELECT ticker_symbol, stockname FROM stock_name_ticker_names;')
+        rows = self.cursor.fetchall()
+        return {row[0]: row[1] for row in rows}
+
 
     def find_closed_trades(self):
         def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):

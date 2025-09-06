@@ -164,19 +164,22 @@ class BrokerApp:
         self.label_ticker_matching = ttk.Label(self.frame_ticker_matching,
                                                text="Select the Stock Name to be shown instead of the Ticker Symbol")
         self.label_ticker_matching.grid(column=0, row=0, padx=10, pady=10, columnspan=4)
-        self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
-                                                                     values=sorted(self.db.get_stock_set()),
-                                                                     state="readonly")
-        self.setup_combobox_stockname_ticker_matching.grid(column=0, row=1, padx=10, pady=10)
+
         self.setup_combobox_stockname_symbol_matching = ttk.Combobox(self.frame_ticker_matching,
                                                                    values=[], state="readonly")
-        self.setup_combobox_stockname_symbol_matching.grid(column=1, row=1, padx=10, pady=10)
+        self.setup_combobox_stockname_symbol_matching.grid(column=0, row=1, padx=10, pady=10)
 
-        self.setup_label_price = ttk.Label(self.frame_ticker_matching, text="")
-        self.setup_label_price.grid(column=2, row=1, padx=10, pady=10)
+        self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
+                                                                     values=[],
+                                                                     state="readonly")
+        self.setup_combobox_stockname_ticker_matching.grid(column=1, row=1, padx=10, pady=10)
 
-        self.button_store_matching = ttk.Button(self.frame_ticker_matching, text="Store Matching", command=self.store_matching)
-        self.button_store_matching.grid(column=3, row=1, padx=10, pady=10)
+        self.setup_edit_stockname_new_symbol = ttk.Entry(self.frame_ticker_matching, width=20)
+        self.setup_edit_stockname_new_symbol.grid(column=2, row=1, padx=10, pady=10)
+
+
+        self.button_store_long_name = ttk.Button(self.frame_ticker_matching, text="Store Long Name", command=self.store_long_name)
+        self.button_store_long_name.grid(column=3, row=1, padx=10, pady=10)
 
         self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_ticker_matching_selected)
         self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_symbol_matching_selected)
@@ -198,6 +201,8 @@ class BrokerApp:
         self.button_import_account_statements.grid(column=0, row=1, columnspan=3, padx=10, pady=10)
         if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG["account_statements_folder"] != "":
             self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
+
+        self.update_tab_settings()
 
     def setup_tab_about(self):
         pass
@@ -340,8 +345,9 @@ class BrokerApp:
         self.add_combobox_stockname['values'] = stocknames
 
     def update_tab_settings(self):
-        stocknames = sorted(self.db.get_stock_set())
-        self.setup_combobox_stockname_ticker_matching['values'] = stocknames
+        stocknames_with_tickers = self.db.get_stocknames_with_tickers()
+        self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
+        self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
 
     def update_tab_sell(self):
         stocknames = sorted(self.db.get_stock_set())
@@ -377,10 +383,15 @@ class BrokerApp:
 
         self.update_all_tabs()
 
-    def store_matching(self):
-        self.db.add_stockname_ticker(self.setup_combobox_stockname_ticker_matching.get(),
-                                     self.setup_combobox_stockname_symbol_matching.get())
+    def store_long_name(self):
+        ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
+        stockname = self.setup_edit_stockname_new_symbol.get()
+        if ticker_symbol == "" or stockname == "":
+            return
+        self.db.add_stockname_ticker(stockname, ticker_symbol, True)
         self.update_all_tabs()
+        self.setup_combobox_stockname_symbol_matching.set(stockname)
+
 
     def browse_import_account_statements_folder(self):
         folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
@@ -393,9 +404,7 @@ class BrokerApp:
     def import_account_statements(self):
         folder_path = self.strvar_import_account_statements_folder_path.get()
         if folder_path:
-            print(f"Importing account statements from folder: {folder_path}")
             import_account_statements.from_folder(folder_path, self.db)
-            print("Import completed.")
             self.update_all_tabs()
 
     def on_add_combobox_stockname_selected(self, event):
@@ -414,33 +423,20 @@ class BrokerApp:
                     self.add_combobox_ticker.set(ticker_symbols[0])
 
     def on_setup_combobox_stockname_ticker_matching_selected(self, event):
-        stockname = self.setup_combobox_stockname_ticker_matching.get()
-        ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
-        if ticker_symbols is None:
-            self.setup_combobox_stockname_symbol_matching['values'] = []
-            self.setup_combobox_stockname_symbol_matching.set('')
-        else:
-            self.setup_combobox_stockname_symbol_matching['values'] = ticker_symbols
-            if len(ticker_symbols) > 0:
-                used_symbol = self.db.get_ticker_symbol(stockname)
-                if used_symbol in ticker_symbols:
-                    self.setup_combobox_stockname_symbol_matching.set(used_symbol)
-                else:
-                    self.setup_combobox_stockname_symbol_matching.set(ticker_symbols[0])
-                self.on_setup_combobox_stockname_symbol_matching_selected(event)
-            else:
-                self.setup_combobox_stockname_symbol_matching.set('')
+        ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
+        stockname = self.db.get_stockname(ticker_symbol)
+        if stockname is not None:
+            self.setup_combobox_stockname_symbol_matching.set(stockname)
+            self.setup_edit_stockname_new_symbol.delete(0, tk.END)
+            self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
     def on_setup_combobox_stockname_symbol_matching_selected(self, event):
-        ticker_symbol = self.setup_combobox_stockname_symbol_matching.get()
-        price, currency, rate = stockdata.get_stock_price(ticker_symbol)
-        if price is None:
-            self.setup_label_price['text'] = f"???"
-        else:
-            if rate is None:
-                self.setup_label_price['text'] = f"{price:.2f} {currency}"
-            else:
-                self.setup_label_price['text'] = f"{price:.2f} {currency}/{price*rate:.2f} EUR"
+        stockname = self.setup_combobox_stockname_symbol_matching.get()
+        ticker_symbol = self.db.get_ticker_symbol(stockname)
+        if ticker_symbol is not None:
+            self.setup_combobox_stockname_ticker_matching.set(ticker_symbol)
+            self.setup_edit_stockname_new_symbol.delete(0, tk.END)
+            self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
     def run(self):
         self.Window.mainloop()

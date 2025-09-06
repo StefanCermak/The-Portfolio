@@ -43,9 +43,9 @@ class Db:
         if self.db_sqlite is not None:
             self.db_sqlite.sell_stock(stockname, earnings, sell_date)
 
-    def add_stockname_ticker(self, stockname: str, ticker_symbol: str):
+    def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: bool = False):
         if self.db_sqlite is not None:
-            self.db_sqlite.add_stockname_ticker(stockname, ticker_symbol)
+            self.db_sqlite.add_stockname_ticker(stockname, ticker_symbol, replace_existing)
 
     def find_closed_trades(self):
         if self.db_sqlite is not None:
@@ -56,3 +56,15 @@ class Db:
             return self.db_sqlite.get_ticker_symbol(stockname)
         else:
             return None
+
+    def get_stockname(self, ticker_symbol: str):
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_stockname(ticker_symbol)
+        else:
+            return None
+
+    def get_stocknames_with_tickers(self):
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_stocknames_with_tickers()
+        else:
+            return dict()
