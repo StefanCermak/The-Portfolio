@@ -1,10 +1,10 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-
 from tkcalendar import DateEntry
 
 import datetime
+import webbrowser
 
 import globals
 import Db
@@ -90,7 +90,7 @@ class BrokerApp:
         self.treeview_active_trades.tag_configure('profit_positive', foreground='green')
         self.treeview_active_trades.tag_configure('profit_negative', foreground='red')
         self.treeview_active_trades.tag_configure('neutral', foreground='blue')
-
+        self.treeview_active_trades.bind("<Double-Button-1>", self.on_active_trades_treeview_click)
         self.update_tab_active_trades()
 
     def setup_tab_trade_history(self):
@@ -120,6 +120,8 @@ class BrokerApp:
         self.treeview_trade_history.tag_configure('profit_positive', foreground='green')
         self.treeview_trade_history.tag_configure('profit_negative', foreground='red')
         self.treeview_trade_history.tag_configure('neutral', foreground='blue')
+
+        self.treeview_trade_history.bind("<Double-Button-1>", self.on_history_trades_treeview_click)
 
         self.update_tab_trade_history()
 
@@ -506,6 +508,35 @@ class BrokerApp:
         if folder_path:
             import_account_statements.from_folder(folder_path, self.db)
             self.update_all_tabs()
+
+    def on_active_trades_treeview_click(self, event):
+        #get ticker symbol from selected row
+        selected_item = self.treeview_active_trades.selection()
+        if selected_item:
+            item = self.treeview_active_trades.item(selected_item)
+            stockname = item['values'][0]
+            if stockname != '' and not stockname.startswith('📅'):
+                # open webbrowser with page https://finance.yahoo.com/quote/{Ticker}/
+                ticker_symbol = self.db.get_ticker_symbol(stockname)
+                if ticker_symbol is not None:
+                    url = f"https://finance.yahoo.com/quote/{ticker_symbol}/"
+                    webbrowser.open(url)
+                    return "break"
+
+    def on_history_trades_treeview_click(self, event):
+        #get ticker symbol from selected row
+        selected_item = self.treeview_trade_history.selection()
+        if selected_item:
+            item = self.treeview_trade_history.item(selected_item)
+            stockname = item['values'][0]
+            if stockname != '' and not stockname.startswith('📅'):
+                # open webbrowser with page https://finance.yahoo.com/quote/{Ticker}/
+                ticker_symbol = self.db.get_ticker_symbol(stockname)
+                if ticker_symbol is not None:
+                    url = f"https://finance.yahoo.com/quote/{ticker_symbol}/"
+                    webbrowser.open(url)
+                    return "break"
+
 
     def on_add_combobox_stockname_selected(self, event):
         stockname = self.add_combobox_stockname.get()
