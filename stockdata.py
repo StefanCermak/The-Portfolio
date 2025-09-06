@@ -177,7 +177,7 @@ def get_ticker_symbol_name_from_isin(isin):
 
 if __name__ == "__main__":
     # Beispielaufrufe der Funktionen
-    print( "get_usd_to_eur_rate():", get_usd_to_eur_rate() )
+    print( "get_currency_to_eur_rate():", get_currency_to_eur_rate() )
     print( "get_ticker_symbols_from_name('Apple Inc.'):", get_ticker_symbols_from_name("Apple Inc.") )
     print( "get_ticker_symbol_name_from_isin('US0378331005'):", get_ticker_symbol_name_from_isin("US0378331005") )
     print( "get_stock_price('AAPL'):", get_stock_price("AAPL") )
