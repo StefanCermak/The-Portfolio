@@ -1,4 +1,9 @@
 import os
+import time
+import json
+import hashlib
+from functools import wraps
+
 """
 This file is part of "The Portfolio".
 
@@ -33,3 +38,77 @@ def path_smart_shorten(path:str) -> str:
         rel_path = path  # Falls z. B. Laufwerkswechsel unter Windows
 
     return rel_path if len(rel_path) < len(tilde_path) else tilde_path
+
+#decorators for caching
+def timed_cache(ttl_seconds=300):
+    """
+    Decorator für zeitbasiertes Caching.
+    Speichert das Ergebnis einer Funktion für ttl_seconds Sekunden.
+
+    Args:
+        ttl_seconds (int): Lebensdauer des Cache in Sekunden
+
+    Returns:
+        Decorated function
+    """
+    def decorator(func):
+        cache = {}
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
+            now = time.time()
+
+            # Cache vorhanden und gültig?
+            if key in cache:
+                result, timestamp = cache[key]
+                if now - timestamp < ttl_seconds:
+                    return result
+
+            # Neu berechnen und speichern
+            result = func(*args, **kwargs)
+            cache[key] = (result, now)
+            return result
+        return wrapper
+    return decorator
+
+def persistent_cache(cache_file):
+    """
+    Decorator für persistenten Datei-Cache.
+    Speichert Funktionsaufrufe und deren Ergebnisse in einer JSON-Datei.
+
+    Args:
+        cache_file (str): Pfad zur Cache-Datei
+
+    Returns:
+        Decorated function
+    """
+    # Cache laden
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r") as f:
+                cache = json.load(f)
+        except json.JSONDecodeError:
+            cache = {}
+    else:
+        cache = {}
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Schlüssel generieren (hashbar, auch bei komplexen args)
+            key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=str)
+            key = hashlib.sha256(key_raw.encode()).hexdigest()
+
+            if key in cache:
+                return cache[key]
+
+            result = func(*args, **kwargs)
+            cache[key] = result
+
+            # Cache speichern
+            with open(cache_file, "w") as f:
+                json.dump(cache, f)
+
+            return result
+        return wrapper
+    return decorator

@@ -163,7 +163,6 @@ class DbSqlite:
         rows = self.cursor.fetchall()
         return {row[0]: row[1] for row in rows}
 
-
     def find_closed_trades(self):
         def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):
             self.cursor.execute('''update active_trades
