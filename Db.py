@@ -52,6 +52,12 @@ class Db:
         else:
             return dict()
 
+    def get_quantity_of_stock(self, stockname: str):
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_quantity_of_stock(stockname)
+        else:
+            return dict()
+
     def add_stock_trade(self, ticker_symbol: str, quantity: float, invest: float, trade_date: datetime.date):
         if self.db_sqlite is not None:
             self.db_sqlite.add_stock_trade(ticker_symbol, quantity, invest, trade_date)

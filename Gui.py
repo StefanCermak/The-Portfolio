@@ -1,5 +1,6 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+from statistics import quantiles
 from tkinter import filedialog
 from tkcalendar import DateEntry
 
@@ -11,6 +12,7 @@ import Db
 import stockdata
 import tools
 import import_account_statements
+
 """
 This file is part of "The Portfolio".
 
@@ -30,6 +32,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """ GUI for the stock broker application """
 
+
 class BrokerApp:
     def __init__(self):
         self.db = Db.Db()
@@ -40,26 +43,23 @@ class BrokerApp:
 
         self.active_trades_tab = ttk.Frame(self.tab_control)
         self.trade_history_tab = ttk.Frame(self.tab_control)
-        self.add_trade_tab = ttk.Frame(self.tab_control)
-        self.sell_tab = ttk.Frame(self.tab_control)
         self.statistics_tab = ttk.Frame(self.tab_control)
+        self.manual_trade_tab = ttk.Frame(self.tab_control)
         self.settings_tab = ttk.Frame(self.tab_control)
         self.about_tab = ttk.Frame(self.tab_control)
 
         self.tab_control.add(self.active_trades_tab, text='Active Trades')
         self.tab_control.add(self.trade_history_tab, text='Trade History')
-        self.tab_control.add(self.add_trade_tab, text='Add Trade')
-        self.tab_control.add(self.sell_tab, text='Sell Stock')
-        self.tab_control.add(self.statistics_tab, text='Statistics')
-        self.tab_control.add(self.settings_tab, text='Settings')
+        self.tab_control.add(self.statistics_tab, text='Summary')
+        self.tab_control.add(self.manual_trade_tab, text='Manual Trade')
+        self.tab_control.add(self.settings_tab, text='Configuration')
         self.tab_control.add(self.about_tab, text='About')
         self.tab_control.pack(expand=1, fill='both')
 
-        self.setup_tab_add_trade()
         self.setup_tab_active_trades()
         self.setup_tab_trade_history()
-        self.setup_tab_sell()
         self.setup_tab_statistics()
+        self.setup_tab_manual_trade()
         self.setup_tab_settings()
         self.setup_tab_about()
 
@@ -98,7 +98,8 @@ class BrokerApp:
         self.trade_history_tab.rowconfigure(0, weight=1)
         self.treeview_trade_history = ttk.Treeview(
             self.trade_history_tab,
-            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell", "Profit", "Profit %", "Profit %(Year"),
+            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell", "Profit", "Profit %",
+                     "Profit %(Year"),
             show='tree headings'
         )
         self.treeview_trade_history.heading("Stock Name", text="Stock Name")
@@ -125,52 +126,53 @@ class BrokerApp:
 
         self.update_tab_trade_history()
 
-    def setup_tab_add_trade(self):
-        self.add_label_stockname = ttk.Label(self.add_trade_tab, text="Stock Name:")
-        self.add_label_stockname.grid(column=0, row=0, padx=10, pady=10)
-        self.add_combobox_stockname = ttk.Combobox(self.add_trade_tab, values=sorted(self.db.get_stock_set()))
-        self.add_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
-        self.add_label_ticker = ttk.Label(self.add_trade_tab, text="Ticker:")
-        self.add_label_ticker.grid(column=4, row=0, padx=10, pady=10)
-        self.add_combobox_ticker = ttk.Combobox(self.add_trade_tab, values=[])
-        self.add_combobox_ticker.grid(column=5, row=0, padx=10, pady=10)
-        self.add_label_quantity = ttk.Label(self.add_trade_tab, text="Quantity:")
-        self.add_label_quantity.grid(column=0, row=1, padx=10, pady=10)
-        self.add_entry_quantity = ttk.Entry(self.add_trade_tab)
-        self.add_entry_quantity.grid(column=1, row=1, padx=10, pady=10)
-        self.add_invest_price = ttk.Label(self.add_trade_tab, text="Invest:")
-        self.add_invest_price.grid(column=0, row=2, padx=10, pady=10)
-        self.add_entry_invest = ttk.Entry(self.add_trade_tab)
-        self.add_entry_invest.grid(column=1, row=2, padx=10, pady=10)
-        self.add_label_date = ttk.Label(self.add_trade_tab, text="Trade Date:")
-        self.add_label_date.grid(column=0, row=3, padx=10, pady=10)
-        self.add_entry_date = DateEntry(self.add_trade_tab, width=12, background='darkblue',
-                                        foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
-                                        year=datetime.date.today().year, date=datetime.date.today())
-        self.add_entry_date.grid(column=1, row=3, padx=10, pady=10)
-        self.button_add_trade = ttk.Button(self.add_trade_tab, text="Add Trade", command=self.add_trade)
-        self.button_add_trade.grid(column=0, row=4, columnspan=2, padx=10, pady=10)
+    def setup_tab_manual_trade(self):
+        self.tab_manual_frame_common = ttk.Frame(self.manual_trade_tab)
+        self.tab_manual_frame_common.grid(column=0, row=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.manual_trade_label_stockname = ttk.Label(self.tab_manual_frame_common, text="Stock Name:")
+        self.manual_trade_label_stockname.grid(column=0, row=0, padx=10, pady=10)
+        self.manual_trade_combobox_stockname = ttk.Combobox(self.tab_manual_frame_common,
+                                                            values=sorted(self.db.get_stock_set()))
+        self.manual_trade_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
+        self.manual_trade_label_ticker = ttk.Label(self.tab_manual_frame_common, text="Ticker:")
+        self.manual_trade_label_ticker.grid(column=4, row=0, padx=10, pady=10)
+        self.manual_trade_combobox_ticker = ttk.Combobox(self.tab_manual_frame_common, values=[])
+        self.manual_trade_combobox_ticker.grid(column=5, row=0, padx=10, pady=10)
+        self.manual_trade_entry_date = DateEntry(self.tab_manual_frame_common, width=12, background='darkblue',
+                                                 foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
+                                                 year=datetime.date.today().year, date=datetime.date.today())
+        self.manual_trade_entry_date.grid(column=6, row=0, padx=10, pady=10)
+        self.tab_manual_frame_buy = ttk.LabelFrame(self.manual_trade_tab, text="Buy Stock")
+        self.tab_manual_frame_buy.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
+        self.manual_trade_label_quantity_buy = ttk.Label(self.tab_manual_frame_buy, text="Quantity:")
+        self.manual_trade_label_quantity_buy.grid(column=0, row=0, padx=10, pady=10)
+        self.manual_trade_entry_quantity_buy = ttk.Entry(self.tab_manual_frame_buy)
+        self.manual_trade_entry_quantity_buy.grid(column=1, row=0, padx=10, pady=10)
+        self.manual_trade_label_invest_buy = ttk.Label(self.tab_manual_frame_buy, text="Invest:")
+        self.manual_trade_label_invest_buy.grid(column=0, row=1, padx=10, pady=10)
+        self.manual_trade_entry_invest_buy = ttk.Entry(self.tab_manual_frame_buy)
+        self.manual_trade_entry_invest_buy.grid(column=1, row=1, padx=10, pady=10)
+        self.manual_trade_button_buy = ttk.Button(self.tab_manual_frame_buy, text="Buy Stock", command=self.add_trade)
+        self.manual_trade_button_buy.grid(column=0, row=2, columnspan=2, padx=10, pady=10)
+        self.tab_manual_frame_sell = ttk.LabelFrame(self.manual_trade_tab, text="Sell Stock")
+        self.tab_manual_frame_sell.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")
+        self.manual_trade_label_quantity_own = ttk.Label(self.tab_manual_frame_sell, text="Quantity:")
+        self.manual_trade_label_quantity_own.grid(column=0, row=0, padx=10, pady=10)
+        self.manual_trade_label_quantity_own_sum = ttk.Label(self.tab_manual_frame_sell, text="t.b.d.")
+        self.manual_trade_label_quantity_own_sum.grid(column=1, row=0, padx=10, pady=10)
+        self.manual_trade_label_earnings_sell = ttk.Label(self.tab_manual_frame_sell, text="Earnings:")
+        self.manual_trade_label_earnings_sell.grid(column=0, row=1, padx=10, pady=10)
+        self.manual_trade_entry_earnings_sell = ttk.Entry(self.tab_manual_frame_sell)
+        self.manual_trade_entry_earnings_sell.grid(column=1, row=1, padx=10, pady=10)
+        self.manual_trade_button_sell = ttk.Button(self.tab_manual_frame_sell, text="Sell Stock",
+                                                   command=self.sell_trade)
+        self.manual_trade_button_sell.grid(column=0, row=2, columnspan=2, padx=10, pady=10)
 
-        self.add_combobox_stockname.bind("<<ComboboxSelected>>", self.on_add_combobox_stockname_selected)
-        self.add_combobox_stockname.bind("<FocusOut>", self.on_add_combobox_stockname_selected)
-
-    def setup_tab_sell(self):
-        self.sell_label_stockname = ttk.Label(self.sell_tab, text="Stock Name:")
-        self.sell_label_stockname.grid(column=0, row=0, padx=10, pady=10)
-        self.sell_combobox_stockname = ttk.Combobox(self.sell_tab, values=sorted(self.db.get_stock_set()), state="readonly")
-        self.sell_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
-        self.sell_label_earnings = ttk.Label(self.sell_tab, text="Earnings:")
-        self.sell_label_earnings.grid(column=0, row=1, padx=10, pady=10)
-        self.sell_entry_earnings = ttk.Entry(self.sell_tab)
-        self.sell_entry_earnings.grid(column=1, row=1, padx=10, pady=10)
-        self.sell_label_date = ttk.Label(self.sell_tab, text="Sell Date:")
-        self.sell_label_date.grid(column=0, row=2, padx=10, pady=10)
-        self.sell_entry_date = DateEntry(self.sell_tab, width=12, background='darkblue',
-                                         foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
-                                         year=datetime.date.today().year, date=datetime.date.today())
-        self.sell_entry_date.grid(column=1, row=2, padx=10, pady=10)
-        self.button_sell = ttk.Button(self.sell_tab, text="Sell Stock", command=self.sell_trade)
-        self.button_sell.grid(column=0, row=3, columnspan=2, padx=10, pady=10)
+        self.manual_trade_combobox_stockname.bind("<<ComboboxSelected>>", self.on_manual_trade_combobox_stockname_selected)
+        self.manual_trade_combobox_stockname.bind("<FocusOut>", self.on_manual_trade_combobox_stockname_selected)
+        self.manual_trade_combobox_ticker.bind("<<ComboboxSelected>>", self.on_manual_trade_combobox_ticker_selected)
+        self.manual_trade_combobox_ticker.bind("<FocusOut>", self.on_manual_trade_combobox_ticker_selected)
+        self.update_tab_manual_trade()
 
     def setup_tab_statistics(self):
         self.setup_tab_statistics_frame_active = ttk.LabelFrame(self.statistics_tab, text="Active Trades Statistics")
@@ -187,39 +189,40 @@ class BrokerApp:
                                                         text=f"Total Invest: # EUR")
         self.label_statistics_active_invest.grid(column=0, row=1, padx=10, pady=10, sticky="w")
         self.label_statistics_active_current_value = ttk.Label(self.setup_tab_statistics_frame_active,
-                                                        text=f"Total Current Value: # EUR")
+                                                               text=f"Total Current Value: # EUR")
         self.label_statistics_active_current_value.grid(column=0, row=2, padx=10, pady=10, sticky="w")
         self.label_statistics_active_profit = ttk.Label(self.setup_tab_statistics_frame_active,
                                                         text=f"Total Profit: # EUR (# %)")
         self.label_statistics_active_profit.grid(column=0, row=3, padx=10, pady=10, sticky="w")
 
         self.label_statistics_history_stocks = ttk.Label(self.setup_tab_statistics_frame_history,
-                                                        text=f"Different Stocks: #")
+                                                         text=f"Different Stocks: #")
         self.label_statistics_history_stocks.grid(column=0, row=0, padx=10, pady=10, sticky="w")
         self.label_statistics_history_invest = ttk.Label(self.setup_tab_statistics_frame_history,
-                                                        text=f"Total Invest: # EUR")
+                                                         text=f"Total Invest: # EUR")
         self.label_statistics_history_invest.grid(column=0, row=1, padx=10, pady=10, sticky="w")
         self.label_statistics_history_exit = ttk.Label(self.setup_tab_statistics_frame_history,
-                                                        text=f"Total Exit: # EUR")
+                                                       text=f"Total Exit: # EUR")
         self.label_statistics_history_exit.grid(column=0, row=2, padx=10, pady=10, sticky="w")
         self.label_statistics_history_profit = ttk.Label(self.setup_tab_statistics_frame_history,
-                                                        text=f"Total Profit: # EUR (# %)")
+                                                         text=f"Total Profit: # EUR (# %)")
         self.label_statistics_history_profit.grid(column=0, row=3, padx=10, pady=10, sticky="w")
         self.label_statistics_history_profit_per_year = ttk.Label(self.setup_tab_statistics_frame_history,
-                                                        text=f"Average profit per Year: # EUR (# %)")
+                                                                  text=f"Average profit per Year: # EUR (# %)")
         self.label_statistics_history_profit_per_year.grid(column=0, row=4, padx=10, pady=10, sticky="w")
 
         self.update_tab_statistics()
 
     def setup_tab_settings(self):
-        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab, text="Ticker Symbol <-> Personal Stock Name Matching")
+        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab,
+                                                    text="Ticker Symbol <-> Personal Stock Name Matching")
         self.frame_ticker_matching.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
         self.label_ticker_matching = ttk.Label(self.frame_ticker_matching,
                                                text="Select the Stock Name to be shown instead of the Ticker Symbol")
         self.label_ticker_matching.grid(column=0, row=0, padx=10, pady=10, columnspan=4)
 
         self.setup_combobox_stockname_symbol_matching = ttk.Combobox(self.frame_ticker_matching,
-                                                                   values=[], state="readonly")
+                                                                     values=[], state="readonly")
         self.setup_combobox_stockname_symbol_matching.grid(column=0, row=1, padx=10, pady=10)
 
         self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
@@ -230,12 +233,14 @@ class BrokerApp:
         self.setup_edit_stockname_new_symbol = ttk.Entry(self.frame_ticker_matching, width=20)
         self.setup_edit_stockname_new_symbol.grid(column=2, row=1, padx=10, pady=10)
 
-
-        self.button_store_long_name = ttk.Button(self.frame_ticker_matching, text="Store Long Name", command=self.store_long_name)
+        self.button_store_long_name = ttk.Button(self.frame_ticker_matching, text="Store Long Name",
+                                                 command=self.store_long_name)
         self.button_store_long_name.grid(column=3, row=1, padx=10, pady=10)
 
-        self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_ticker_matching_selected)
-        self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>", self.on_setup_combobox_stockname_symbol_matching_selected)
+        self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>",
+                                                           self.on_setup_combobox_stockname_ticker_matching_selected)
+        self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>",
+                                                           self.on_setup_combobox_stockname_symbol_matching_selected)
 
         self.frame_import_account_statements = ttk.LabelFrame(self.settings_tab, text="Import Account Statements")
         self.frame_import_account_statements.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
@@ -244,15 +249,19 @@ class BrokerApp:
         self.label_import_account_statements_folder.grid(column=0, row=0, padx=10, pady=10)
         self.strvar_import_account_statements_folder_path = tk.StringVar()
         self.entry_import_account_statements_folder_path = ttk.Entry(self.frame_import_account_statements,
-                                                                    textvariable=self.strvar_import_account_statements_folder_path, width=50)
+                                                                     textvariable=self.strvar_import_account_statements_folder_path,
+                                                                     width=50)
         self.entry_import_account_statements_folder_path.grid(column=1, row=0, padx=10, pady=10)
         self.button_browse_import_account_statements_folder = ttk.Button(self.frame_import_account_statements,
-                                                                 text="Browse", command=self.browse_import_account_statements_folder)
+                                                                         text="Browse",
+                                                                         command=self.browse_import_account_statements_folder)
         self.button_browse_import_account_statements_folder.grid(column=2, row=0, padx=10, pady=10)
         self.button_import_account_statements = ttk.Button(self.frame_import_account_statements,
-                                                          text="Import Account Statements", command=self.import_account_statements)
+                                                           text="Import Account Statements",
+                                                           command=self.import_account_statements)
         self.button_import_account_statements.grid(column=0, row=1, columnspan=3, padx=10, pady=10)
-        if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG["account_statements_folder"] != "":
+        if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG[
+            "account_statements_folder"] != "":
             self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
 
         self.update_tab_settings()
@@ -266,8 +275,7 @@ class BrokerApp:
     def update_all_tabs(self):
         self.update_tab_active_trades()
         self.update_tab_trade_history()
-        self.update_tab_add_trade()
-        self.update_tab_sell()
+        self.update_tab_manual_trade()
         self.update_tab_settings()
 
     def update_tab_active_trades(self):
@@ -275,7 +283,7 @@ class BrokerApp:
         for item in self.treeview_active_trades.get_children():
             self.treeview_active_trades.delete(item)
         portfolio_stock_names = sorted(trades.keys())
-        stock_summary = {stockname: { 'id': '', 'quantity': 0, 'invest':0 } for stockname in portfolio_stock_names}
+        stock_summary = {stockname: {'id': '', 'quantity': 0, 'invest': 0} for stockname in portfolio_stock_names}
         for trade, data_array in trades.items():
             for data in data_array:
                 stock_summary[trade]['quantity'] += data['quantity']
@@ -339,13 +347,13 @@ class BrokerApp:
                         tag = 'profit_negative'
 
                 id = self.treeview_active_trades.insert(stock_summary[trade]['id'],
-                                                   tk.END,
-                                                   values=('📅'+data['date'].strftime(globals.DATE_FORMAT),
-                                                           f"{data['quantity']:.4f}",
-                                                           f"{data['invest']:.2f} {globals.CURRENCY}",
-                                                           current_value
-                                                           )
-                                                )
+                                                        tk.END,
+                                                        values=('📅' + data['date'].strftime(globals.DATE_FORMAT),
+                                                                f"{data['quantity']:.4f}",
+                                                                f"{data['invest']:.2f} {globals.CURRENCY}",
+                                                                current_value
+                                                                )
+                                                        )
                 self.treeview_active_trades.item(id, tags=(tag,))
 
     def update_tab_trade_history(self):
@@ -366,27 +374,29 @@ class BrokerApp:
                 profit_percent = (profit_eur / data['sum_buy'] * 100) if data['sum_buy'] != 0 else 0.0
                 days_held = (data['end_date'] - data['start_date']).days
                 # tages prozensatz = (1 + gesamtprozentsatz)^(1/anzahltage) - 1
-                profit_percent_per_day = ( (1 + profit_percent / 100) ** (1/days_held) - 1 ) * 100 if days_held > 0 else 0.0
+                profit_percent_per_day = ((1 + profit_percent / 100) ** (
+                            1 / days_held) - 1) * 100 if days_held > 0 else 0.0
                 # Jahres prozensatz = (1 + tagesprozentsatz)^365 - 1
-                profit_percent_per_year = ( (1 + profit_percent_per_day / 100) ** 365 - 1 ) * 100 if days_held > 0 else 0.0
+                profit_percent_per_year = ((
+                                                       1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
                 tag = 'neutral'
                 if profit_eur > 0.01:
                     tag = 'profit_positive'
                 elif profit_eur < -0.01:
                     tag = 'profit_negative'
                 line = self.treeview_trade_history.insert(stock_id,
-                                                  tk.END,
-                                                  values=(
-                                                      '',
-                                                      data['start_date'].strftime(globals.DATE_FORMAT),
-                                                      data['end_date'].strftime(globals.DATE_FORMAT),
-                                                      f"{data['sum_buy']:.2f} {globals.CURRENCY}",
-                                                      f"{data['sum_sell']:.2f} {globals.CURRENCY}",
-                                                      f"{profit_eur:.2f} {globals.CURRENCY}",
-                                                      f"{profit_percent:.2f} %",
-                                                      f"{profit_percent_per_year:.2f} %"
-                                                  )
-                                                  )
+                                                          tk.END,
+                                                          values=(
+                                                              '',
+                                                              data['start_date'].strftime(globals.DATE_FORMAT),
+                                                              data['end_date'].strftime(globals.DATE_FORMAT),
+                                                              f"{data['sum_buy']:.2f} {globals.CURRENCY}",
+                                                              f"{data['sum_sell']:.2f} {globals.CURRENCY}",
+                                                              f"{profit_eur:.2f} {globals.CURRENCY}",
+                                                              f"{profit_percent:.2f} %",
+                                                              f"{profit_percent_per_year:.2f} %"
+                                                          )
+                                                          )
                 self.treeview_trade_history.item(line, tags=(tag,))
                 sum_profit += profit_eur
             tag = 'neutral'
@@ -396,18 +406,17 @@ class BrokerApp:
                 tag = 'profit_negative'
             self.treeview_trade_history.item(stock_id, tags=(tag,))
 
-    def update_tab_add_trade(self):
+    def update_tab_manual_trade(self):
         stocknames = sorted(self.db.get_stock_set())
-        self.add_combobox_stockname['values'] = stocknames
+        self.manual_trade_combobox_stockname['values'] = stocknames
+        self.manual_trade_combobox_stockname.set('')
+        self.manual_trade_combobox_ticker['values'] = []
+        self.manual_trade_combobox_ticker.set('')
 
     def update_tab_settings(self):
         stocknames_with_tickers = self.db.get_stocknames_with_tickers()
         self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
         self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
-
-    def update_tab_sell(self):
-        stocknames = sorted(self.db.get_stock_set())
-        self.sell_combobox_stockname['values'] = stocknames
 
     def update_tab_statistics(self):
         # Active Trades Statistics
@@ -429,7 +438,8 @@ class BrokerApp:
         self.label_statistics_active_stocks.config(text=f"Different Stocks: {len(stocks)}")
         self.label_statistics_active_invest.config(text=f"Total Invest: {total_invest:.2f} {globals.CURRENCY}")
         self.label_statistics_active_current_value.config(text=f"Total Current Value: {total_current_value:.2f} EUR")
-        self.label_statistics_active_profit.config(text=f"Total Profit: {total_profit:.2f} EUR ({profit_percent:.2f} %)")
+        self.label_statistics_active_profit.config(
+            text=f"Total Profit: {total_profit:.2f} EUR ({profit_percent:.2f} %)")
         # Trade History Statistics
         history_stocks = self.db.get_history_stock_set()
         stocks = set()
@@ -446,42 +456,52 @@ class BrokerApp:
                 total_profit += profit
                 total_days += (data['end_date'] - data['start_date']).days
         profit_percent = (total_profit / total_invest * 100) if total_invest != 0 else 0.0
-        avg_profit_per_year = ( (1 + (total_profit / total_invest) ) ** (365/total_days) - 1 ) * 100 if total_days > 0 else 0.0
+        avg_profit_per_year = ((1 + (total_profit / total_invest)) ** (
+                    365 / total_days) - 1) * 100 if total_days > 0 else 0.0
+        if total_days == 0:
+            avg_profit_per_year = 0.0
+            total_days = 1  # avoid division by zero
         self.label_statistics_history_stocks.config(text=f"Different Stocks: {len(stocks)}")
         self.label_statistics_history_invest.config(text=f"Total Invest: {total_invest:.2f} {globals.CURRENCY}")
         self.label_statistics_history_exit.config(text=f"Total Exit: {total_exit:.2f} {globals.CURRENCY}")
-        self.label_statistics_history_profit.config(text=f"Total Profit: {total_profit:.2f} {globals.CURRENCY} ({profit_percent:.2f} %)")
-        self.label_statistics_history_profit_per_year.config(text=f"Average profit per Year: { (total_profit / total_days * 365):.2f} {globals.CURRENCY} ({avg_profit_per_year:.2f} %)")
+        self.label_statistics_history_profit.config(
+            text=f"Total Profit: {total_profit:.2f} {globals.CURRENCY} ({profit_percent:.2f} %)")
+        self.label_statistics_history_profit_per_year.config(
+            text=f"Average profit per Year: {(total_profit / total_days * 365):.2f} {globals.CURRENCY} ({avg_profit_per_year:.2f} %)")
         # Dividends Statistics
         # Not implemented yet
 
     def add_trade(self):
-        stockname = self.add_combobox_stockname.get()
-        ticker_symbol = self.add_combobox_ticker.get()
-        quantity = float(self.add_entry_quantity.get().replace(',', '.'))
-        price = float(self.add_entry_invest.get().replace(',', '.'))
-        trade_date = self.add_entry_date.get_date()
+        stockname = self.manual_trade_combobox_stockname.get()
+        ticker_symbol = self.manual_trade_combobox_ticker.get()
+
+        quantity = float(self.manual_trade_entry_quantity_buy.get().replace(',', '.'))
+        price = float(self.manual_trade_entry_invest_buy.get().replace(',', '.'))
+        trade_date = self.manual_trade_entry_date.get_date()
 
         self.db.add_stockname_ticker(stockname, ticker_symbol)
         self.db.add_stock_trade(ticker_symbol, quantity, price, trade_date)
 
-        self.add_combobox_stockname.set('')
-        self.add_entry_quantity.delete(0, tk.END)
-        self.add_entry_invest.delete(0, tk.END)
-        self.add_entry_date.set_date(datetime.date.today())
+        self.manual_trade_entry_quantity_buy.delete(0, tk.END)
+        self.manual_trade_entry_invest_buy.delete(0, tk.END)
+        self.manual_trade_entry_date.set_date(datetime.date.today())
 
         self.update_all_tabs()
 
     def sell_trade(self):
-        stockname = self.sell_combobox_stockname.get()
-        earnings = float(self.sell_entry_earnings.get().replace(',', '.'))
-        sell_date = self.sell_entry_date.get_date()
+        stockname = self.manual_trade_combobox_stockname.get()
+        ticker_symbol = self.manual_trade_combobox_ticker.get()
 
-        self.db.sell_stock(stockname, earnings, sell_date)
+        earnings = float(self.manual_trade_entry_earnings_sell.get().replace(',', '.'))
+        trade_date = self.manual_trade_entry_date.get_date()
 
-        self.sell_combobox_stockname.set('')
-        self.sell_entry_earnings.delete(0, tk.END)
-        self.sell_entry_date.set_date(datetime.date.today())
+        self.db.add_stockname_ticker(stockname, ticker_symbol)
+        self.db.sell_stock(stockname, earnings, trade_date)
+
+        self.manual_trade_entry_earnings_sell.delete(0, tk.END)
+        self.manual_trade_entry_date.set_date(datetime.date.today())
+        self.manual_trade_label_quantity_own_sum.set("")
+        self.manual_trade_button_sell.config(state=tk.DISABLED)
 
         self.update_all_tabs()
 
@@ -493,7 +513,6 @@ class BrokerApp:
         self.db.add_stockname_ticker(stockname, ticker_symbol, True)
         self.update_all_tabs()
         self.setup_combobox_stockname_symbol_matching.set(stockname)
-
 
     def browse_import_account_statements_folder(self):
         folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
@@ -537,6 +556,62 @@ class BrokerApp:
                     webbrowser.open(url)
                     return "break"
 
+    def on_manual_trade_combobox_stockname_selected(self, event):
+        stockname = self.manual_trade_combobox_stockname.get()
+        ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
+        if ticker_symbols is None:
+            self.manual_trade_combobox_ticker['values'] = []
+            self.manual_trade_combobox_ticker.set('')
+            #disable the buy and sell buttons
+            self.manual_trade_button_buy.config(state=tk.DISABLED)
+            self.manual_trade_button_sell.config(state=tk.DISABLED)
+        else:
+            self.manual_trade_combobox_ticker['values'] = ticker_symbols
+            if len(ticker_symbols) > 0:
+                used_symbol = self.db.get_ticker_symbol(stockname)
+                if used_symbol in ticker_symbols:
+                    self.manual_trade_combobox_ticker.set(used_symbol)
+                    quantity = self.db.get_quantity_of_stock(stockname)
+                    if quantity and quantity > 0:
+                        self.manual_trade_label_quantity_own_sum.config(text=f"{quantity:.4f}")
+                        #enable the buy and sell buttons
+                        self.manual_trade_button_buy.config(state=tk.NORMAL)
+                        self.manual_trade_button_sell.config(state=tk.NORMAL)
+                    else:
+                        self.manual_trade_label_quantity_own_sum.config(text="0.0000")
+                        #enable only the buy button
+                        self.manual_trade_button_buy.config(state=tk.NORMAL)
+                        self.manual_trade_button_sell.config(state=tk.DISABLED)
+                else:
+                    self.manual_trade_combobox_ticker.set(ticker_symbols[0])
+                    self.manual_trade_label_quantity_own_sum.config(text="")
+                    #disabe all buttons
+                    self.manual_trade_button_buy.config(state=tk.DISABLED)
+                    self.manual_trade_button_sell.config(state=tk.DISABLED)
+
+
+    def on_manual_trade_combobox_ticker_selected(self, event):
+        ticker_symbol = self.manual_trade_combobox_ticker.get()
+        stockname = self.db.get_stockname(ticker_symbol)
+        if stockname is not None:
+            self.manual_trade_combobox_stockname.set(stockname)
+            #enable the buy and sell buttons
+            self.manual_trade_button_buy.config(state=tk.NORMAL)
+            self.manual_trade_button_sell.config(state=tk.NORMAL)
+            quantity = self.db.get_quantity_of_stock(stockname)
+            if quantity and quantity > 0:
+                self.manual_trade_label_quantity_own_sum.config(text=f"{quantity:.4f}")
+                #enable the buy and sell buttons
+                self.manual_trade_button_buy.config(state=tk.NORMAL)
+                self.manual_trade_button_sell.config(state=tk.NORMAL)
+            else:
+                self.manual_trade_label_quantity_own_sum.config(text="")
+                #enable only the buy button
+                self.manual_trade_button_buy.config(state=tk.NORMAL)
+                self.manual_trade_button_sell.config(state=tk.DISABLED)
+        else:
+            self.manual_trade_button_buy.config(state=tk.DISABLED)
+            self.manual_trade_button_sell.config(state=tk.DISABLED)
 
     def on_add_combobox_stockname_selected(self, event):
         stockname = self.add_combobox_stockname.get()

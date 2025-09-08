@@ -91,6 +91,19 @@ class DbSqlite:
                                    'sum_sell': row[4]})
         return dataset
 
+    def get_quantity_of_stock(self, stockname: str):
+        self.cursor.execute('''
+            SELECT SUM(a.quantity) as total_quantity
+            FROM active_trades a
+            JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
+            WHERE s.stockname = ? AND a.is_active_series = 1;
+        ''', (stockname,))
+        row = self.cursor.fetchone()
+        if row and row[0] is not None:
+            return row[0]
+        else:
+            return None
+
     def add_stock_trade(self, ticker_symbol: str, quantity: float, invest: float, trade_date: datetime.date):
         # query duplicate trades
         self.cursor.execute('''
