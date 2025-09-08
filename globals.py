@@ -56,6 +56,8 @@ def load_user_config():
             "MARIADB_USER": "guest",
             "MARIADB_PASSWORD": "guest",
             "MARIADB_DB": "portfolio",
+
+            "OPEN_AI_API_KEY": "",
         }
 
 
