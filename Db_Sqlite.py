@@ -21,6 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """ SQLite database handler for stock trades. """
 
+
 class DbSqlite:
     def __init__(self):
         self.connection = sqlite3.connect(globals.SQLITE_FILE)
@@ -51,6 +52,15 @@ class DbSqlite:
                 sum_buy REAL NOT NULL,
                 sum_sell REAL NOT NULL,
                 FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS ai_stock_analysis (
+                ticker_symbol TEXT NOT NULL,
+                analysis_date TEXT NOT NULL,
+                chance INTEGER NOT NULL,
+                chance_explanation TEXT,
+                risk INTEGER NOT NULL,
+                risk_explanation TEXT,
+                PRIMARY KEY (ticker_symbol, analysis_date),
+                FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
         self.connection.commit()
 
     def get_stock_set(self):
@@ -63,16 +73,17 @@ class DbSqlite:
 
     def get_current_stock_set(self):
         # Returns a dictionary with stockname as key and a dictionary with current quantity and current invest as value
-        self.cursor.execute('''SELECT s.stockname, a.quantity, a.invest, a.trade_date
+        self.cursor.execute('''SELECT s.stockname, a.quantity, a.invest, a.trade_date, ai.chance, ai.chance_explanation, ai.risk, ai.risk_explanation
                                FROM active_trades a
                                JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
+                               LEFT JOIN ai_stock_analysis ai ON a.ticker_symbol = ai.ticker_symbol
                                WHERE a.is_active_series = 1;''')
         rows = self.cursor.fetchall()
         dataset = dict()
         for row in rows:
             if row[0] not in dataset:
                 dataset[row[0]] = []
-            dataset[row[0]].append({'quantity': row[1], 'invest': row[2], 'date': datetime.date.fromisoformat(row[3])})
+            dataset[row[0]].append({'quantity': row[1], 'invest': row[2], 'date': datetime.date.fromisoformat(row[3]), 'chance': row[4], 'chance_explanation': row[5], 'risk': row[6], 'risk_explanation': row[7]})
 
         return dataset
 
@@ -227,6 +238,19 @@ class DbSqlite:
                     total_money_spend = 0.0
                     total_money_earnerd = 0.0
                     start_date = None
+        self.connection.commit()
+
+    def add_new_analysis(self, analysis_dict):
+        print(analysis_dict)
+        for ticker, analysis_result_dict in analysis_dict.items():
+            self.cursor.execute('''
+                INSERT OR REPLACE INTO ai_stock_analysis (ticker_symbol, analysis_date, chance, chance_explanation, risk, risk_explanation)
+                VALUES (?, ?, ?, ?, ?, ?);
+            ''', (ticker, datetime.date.today().isoformat(),
+                  analysis_result_dict['chance'][0] if analysis_result_dict['chance'][0] is not None else -1,
+                  analysis_result_dict['chance'][1],
+                  analysis_result_dict['risk'][0] if analysis_result_dict['risk'][0] is not None else -1,
+                  analysis_result_dict['risk'][1]))
         self.connection.commit()
 
     def close(self):

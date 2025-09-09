@@ -23,6 +23,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """ Database wrapper class to handle different database backends. Currently supports SQLite. """
 
 class Db:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
         if globals.USER_CONFIG["USE_SQLITE"]:
             self.db_sqlite = Db_Sqlite.DbSqlite()
@@ -91,3 +98,9 @@ class Db:
             return self.db_sqlite.get_stocknames_with_tickers()
         else:
             return dict()
+
+    def add_new_analysis(self, analysis_dict):
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_new_analysis(analysis_dict)
+        else:
+            return None

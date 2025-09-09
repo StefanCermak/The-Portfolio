@@ -203,11 +203,10 @@ def pdf_reader_traderepublic(reader :PdfReader):
                             current_month = None
 
                 case _:
-                    if 'Handel' in line_split:
-                        print(line_split)
                     if trade_multiline:
                         trade_multiline = False
-                        print(line_split)
+                        print("cancel multiline", line_split)
+
 
     return transactions
 

@@ -1,6 +1,6 @@
 import tkinter as tk
 import tkinter.ttk as ttk
-from statistics import quantiles
+
 from tkinter import filedialog
 from tkcalendar import DateEntry
 
@@ -12,6 +12,7 @@ import Db
 import stockdata
 import tools
 import import_account_statements
+import daily_report
 
 """
 This file is part of "The Portfolio".
@@ -31,6 +32,35 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 """ GUI for the stock broker application """
+
+class ToolTip:
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+        self.label = None
+
+    def showtip(self, text, x, y):
+        if not text:
+            return
+        if self.tipwindow:
+            tw = self.tipwindow
+            if self.label:
+                self.label.config(text=text)
+            tw.wm_geometry(f"+{x}+{y}")
+            return
+
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        self.label = label = tk.Label(tw, text=text, background="#ffffe0", relief="solid", borderwidth=1, font=("tahoma", "12", "normal"))
+        label.pack(ipadx=1)
+
+    def hidetip(self):
+        tw = self.tipwindow
+        self.tipwindow = None
+        self.label = None
+        if tw:
+            tw.destroy()
 
 
 class BrokerApp:
@@ -63,15 +93,29 @@ class BrokerApp:
         self.setup_tab_settings()
         self.setup_tab_about()
 
+        self.active_trades_tooltip = ToolTip(self.treeview_active_trades)
+
     def setup_tab_active_trades(self):
+        self.active_trades_tab.sort = "name"
         self.active_trades_tab.columnconfigure(0, weight=1)
-        self.active_trades_tab.rowconfigure(0, weight=1)
+        self.active_trades_tab.rowconfigure(0, weight=0) # Menubar
+        self.active_trades_tab.rowconfigure(1, weight=1) # treeview
+
+        self.active_trades_menu_frame = ttk.Frame(self.active_trades_tab)
+        self.active_trades_menu_frame.grid(column=0, row=0, padx=0, pady=0, sticky="nsew")
+        self.active_trades_button_ai_analysis = ttk.Button(self.active_trades_menu_frame, text="AI stock analysis",
+                                                          command=self.update_ai_analysis)
+        self.active_trades_button_ai_analysis.grid(column=0, row=0, padx=0, pady=0)
+
+
         self.treeview_active_trades = ttk.Treeview(
             self.active_trades_tab,
-            columns=("Stock Name", "Quantity", "Invest", "Now", "Profit"),
+            columns=("Stock Name","Chance","Risk", "Quantity", "Invest", "Now", "Profit"),
             show='tree headings'
         )
-        self.treeview_active_trades.heading("Stock Name", text="Stock Name")
+        self.treeview_active_trades.heading("Stock Name", text="Stock Name", command=self.on_stock_name_heading_click)
+        self.treeview_active_trades.heading("Chance", text="++", command=self.on_chance_heading_click)
+        self.treeview_active_trades.heading("Risk", text="--", command=self.on_risk_heading_click)
         self.treeview_active_trades.heading("Quantity", text="Quantity")
         self.treeview_active_trades.heading("Invest", text="Invest")
         self.treeview_active_trades.heading("Now", text="Now")
@@ -79,6 +123,9 @@ class BrokerApp:
         self.treeview_active_trades.column("#0", width=30, stretch=False)
         #set Quantity column width to 12 characters, so that the quantity fits in the column, disable stretching
         self.treeview_active_trades.column("Quantity", width=120, stretch=False)
+        #set risk and chance column width to 3 characters, so that the amount fits in the column, disable stretching
+        self.treeview_active_trades.column("Chance", width=30, stretch=False)
+        self.treeview_active_trades.column("Risk", width=30, stretch=False)
         #set Invest column width to 15 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Invest", width=150, stretch=False)
         #set Now column width to 32 characters, so that the amount fits in the column, disable stretching
@@ -86,11 +133,14 @@ class BrokerApp:
         #set Profit column width to 20 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Profit", width=200, stretch=False)
 
-        self.treeview_active_trades.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
+        self.treeview_active_trades.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
         self.treeview_active_trades.tag_configure('profit_positive', foreground='green')
         self.treeview_active_trades.tag_configure('profit_negative', foreground='red')
         self.treeview_active_trades.tag_configure('neutral', foreground='blue')
         self.treeview_active_trades.bind("<Double-Button-1>", self.on_active_trades_treeview_click)
+        self.treeview_active_trades.bind("<Motion>", self.on_active_trades_motion)
+        self.treeview_active_trades.bind("<Leave>", lambda e: self.active_trades_tooltip.hidetip())
+
         self.update_tab_active_trades()
 
     def setup_tab_trade_history(self):
@@ -264,6 +314,24 @@ class BrokerApp:
             "account_statements_folder"] != "":
             self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
 
+        self.frame_ai_configuration = ttk.LabelFrame(self.settings_tab, text="AI Configuration")
+        self.frame_ai_configuration.grid(column=0, row=2, padx=10, pady=10, sticky="nsew")
+        self.label_openai_api_key = ttk.Label(self.frame_ai_configuration, text="OpenAI API Key:")
+        self.label_openai_api_key.grid(column=0, row=0, padx=10, pady=10)
+        self.entry_openai_api_key = ttk.Entry(self.frame_ai_configuration, width=50)
+        self.entry_openai_api_key.grid(column=1, row=0, padx=10, pady=10)
+        if "OPEN_AI_API_KEY" in globals.USER_CONFIG and globals.USER_CONFIG["OPEN_AI_API_KEY"] != "":
+            self.entry_openai_api_key.insert(0, globals.USER_CONFIG["OPEN_AI_API_KEY"])
+        self.button_strore_openai_api_key = ttk.Button(self.frame_ai_configuration, text="Store API Key",
+                                                      command=self.store_openai_api_key)
+        self.button_strore_openai_api_key.grid(column=2, row=0, padx=10, pady=10)
+        self.label_openai_api_key_info = ttk.Label(self.frame_ai_configuration,
+                                                   text="You can get an API key from https://platform.openai.com/account/api-keys")
+        self.label_openai_api_key_info.grid(column=0, row=1, columnspan=2, padx=10, pady=10)
+        self.button_openai_website = ttk.Button(self.frame_ai_configuration, text="Open OpenAI Website",
+                                               command=lambda: webbrowser.open("https://platform.openai.com/account/api-keys"))
+        self.button_openai_website.grid(column=3, row=1, padx=10, pady=10)
+
         self.update_tab_settings()
 
     def setup_tab_about(self):
@@ -282,12 +350,22 @@ class BrokerApp:
         trades = self.db.get_current_stock_set()
         for item in self.treeview_active_trades.get_children():
             self.treeview_active_trades.delete(item)
-        portfolio_stock_names = sorted(trades.keys())
+        portfolio_stock_names = trades.keys()
         stock_summary = {stockname: {'id': '', 'quantity': 0, 'invest': 0} for stockname in portfolio_stock_names}
         for trade, data_array in trades.items():
             for data in data_array:
                 stock_summary[trade]['quantity'] += data['quantity']
                 stock_summary[trade]['invest'] += data['invest']
+                stock_summary[trade]['chance'] = data['chance'] if data['chance'] is not None else ''
+                stock_summary[trade]['risk'] = data['risk'] if data['risk'] is not None else ''
+                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data['chance_explanation'] is not None else ''
+                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data['risk_explanation'] is not None else ''
+        if self.active_trades_tab.sort == "name":
+            portfolio_stock_names = sorted(portfolio_stock_names)
+        elif self.active_trades_tab.sort == "chance":
+            portfolio_stock_names = sorted(portfolio_stock_names, key=lambda name: stock_summary[name]['chance'] if stock_summary[name]['chance'] is not None else -1, reverse=True)
+        elif self.active_trades_tab.sort == "risk":
+            portfolio_stock_names = sorted(portfolio_stock_names, key=lambda name: stock_summary[name]['risk'] if stock_summary[name]['risk'] is not None else 101, reverse=True)
         for stockname in portfolio_stock_names:
             current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
             if current_price is not None and rate is not None:
@@ -315,6 +393,8 @@ class BrokerApp:
             stock_summary[stockname]['id'] = self.treeview_active_trades.insert('',
                                                                                 tk.END,
                                                                                 values=(stockname,
+                                                                                        stock_summary[stockname]['chance'],
+                                                                                        stock_summary[stockname]['risk'],
                                                                                         f"{stock_summary[stockname]['quantity']:.4f}",
                                                                                         f"{stock_summary[stockname]['invest']:.2f} {globals.CURRENCY}",
                                                                                         current_value,
@@ -349,6 +429,7 @@ class BrokerApp:
                 id = self.treeview_active_trades.insert(stock_summary[trade]['id'],
                                                         tk.END,
                                                         values=('📅' + data['date'].strftime(globals.DATE_FORMAT),
+                                                                "", "",
                                                                 f"{data['quantity']:.4f}",
                                                                 f"{data['invest']:.2f} {globals.CURRENCY}",
                                                                 current_value
@@ -479,6 +560,8 @@ class BrokerApp:
         price = float(self.manual_trade_entry_invest_buy.get().replace(',', '.'))
         trade_date = self.manual_trade_entry_date.get_date()
 
+        print(stockname, ticker_symbol, quantity, price, trade_date)
+
         self.db.add_stockname_ticker(stockname, ticker_symbol)
         self.db.add_stock_trade(ticker_symbol, quantity, price, trade_date)
 
@@ -514,6 +597,11 @@ class BrokerApp:
         self.update_all_tabs()
         self.setup_combobox_stockname_symbol_matching.set(stockname)
 
+    def store_openai_api_key(self):
+        api_key = self.entry_openai_api_key.get().strip()
+        globals.USER_CONFIG["OPEN_AI_API_KEY"] = api_key
+        globals.save_user_config()
+
     def browse_import_account_statements_folder(self):
         folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
         if folder_path:
@@ -527,6 +615,66 @@ class BrokerApp:
         if folder_path:
             import_account_statements.from_folder(folder_path, self.db)
             self.update_all_tabs()
+
+    def update_ai_analysis(self):
+        stocknames = self.db.get_current_stock_set()
+        ticker_symbols = [self.db.get_ticker_symbol(name) for name in stocknames.keys()]
+        ai_report = daily_report.daily_report(ticker_symbols)
+        self.db.add_new_analysis(ai_report)
+
+    def on_stock_name_heading_click(self):
+        self.active_trades_tab.sort = "name"
+        self.update_tab_active_trades()
+
+    def on_chance_heading_click(self):
+        self.active_trades_tab.sort = "chance"
+        self.update_tab_active_trades()
+
+    def on_risk_heading_click(self):
+        self.active_trades_tab.sort = "risk"
+        self.update_tab_active_trades()
+
+    def on_active_trades_motion(self, event):
+        region = self.treeview_active_trades.identify("region", event.x, event.y)
+        if region != "cell":
+            self.active_trades_tooltip.hidetip()
+            return
+        col = self.treeview_active_trades.identify_column(event.x)
+        if col not in ["#2", "#3"]:  # "Chance" ist die zweite Spalte, "Risk" die dritte Spalte
+            self.active_trades_tooltip.hidetip()
+            return
+        else:
+            if col == "#2":
+                explanation_type = "chance_explanation"
+            else:
+                explanation_type = "risk_explanation"
+        row_id = self.treeview_active_trades.identify_row(event.y)
+        if not row_id:
+            self.active_trades_tooltip.hidetip()
+            return
+        item = self.treeview_active_trades.item(row_id)
+        stockname = item['values'][0]
+        if stockname.startswith('📅'):
+            parent_id = self.treeview_active_trades.parent(row_id)
+            if not parent_id:
+                self.active_trades_tooltip.hidetip()
+                return
+            parent_item = self.treeview_active_trades.item(parent_id)
+            stockname = parent_item['values'][0]
+        # Hole den Erklärungstext aus dem stock_summary (du musst das ggf. anpassen)
+        trades = self.db.get_current_stock_set()
+        if stockname in trades:
+            explanation = ""
+            for data in trades[stockname]:
+                if data.get(explanation_type):
+                    explanation = data[explanation_type]
+                    break
+            if explanation:
+                x = self.treeview_active_trades.winfo_rootx() + event.x + 20
+                y = self.treeview_active_trades.winfo_rooty() + event.y + 10
+                self.active_trades_tooltip.showtip(explanation, x, y)
+                return
+        self.active_trades_tooltip.hidetip()
 
     def on_active_trades_treeview_click(self, event):
         #get ticker symbol from selected row
@@ -578,17 +726,15 @@ class BrokerApp:
                         self.manual_trade_button_buy.config(state=tk.NORMAL)
                         self.manual_trade_button_sell.config(state=tk.NORMAL)
                     else:
-                        self.manual_trade_label_quantity_own_sum.config(text="0.0000")
+                        self.manual_trade_label_quantity_own_sum.config(text="")
                         #enable only the buy button
                         self.manual_trade_button_buy.config(state=tk.NORMAL)
                         self.manual_trade_button_sell.config(state=tk.DISABLED)
                 else:
                     self.manual_trade_combobox_ticker.set(ticker_symbols[0])
                     self.manual_trade_label_quantity_own_sum.config(text="")
-                    #disabe all buttons
-                    self.manual_trade_button_buy.config(state=tk.DISABLED)
+                    self.manual_trade_button_buy.config(state=tk.NORMAL)
                     self.manual_trade_button_sell.config(state=tk.DISABLED)
-
 
     def on_manual_trade_combobox_ticker_selected(self, event):
         ticker_symbol = self.manual_trade_combobox_ticker.get()
