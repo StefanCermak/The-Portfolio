@@ -2,6 +2,7 @@ from openai import OpenAI
 from ddgs import DDGS
 import feedparser
 import requests
+import logging
 
 import stockdata
 import globals
@@ -62,12 +63,14 @@ def get_rss_result(tickers, count_per_ticker=10):
                     break
     return news_dict
 
+
 def get_duckduckgo_result(company_name, count=5):
     with DDGS() as ddgs:
         results = ddgs.text(f"{company_name} News", max_results=count)
         if results:
             return [('<news>: '+r.get('title')+' :->'+r.get('body')) for r in results[:count] if 'body' in r]
     return []
+
 
 def collect_news(tickers):
     stock_news = get_rss_result(tickers)
@@ -80,6 +83,7 @@ def collect_news(tickers):
                 stock_news[ticker] = duck_news
     return stock_news
 
+
 def stock_analyst_bill(response):
     input_tokens = response.usage.prompt_tokens
     output_tokens = response.usage.completion_tokens
@@ -91,9 +95,11 @@ def stock_analyst_bill(response):
     total_cost_usd = cost_input_usd + cost_output_usd
     return total_cost_usd
 
+
 def stock_analyst(stock_pile, stock_news):
     # stock_pile is a dictionary with keys as ticker symbols and values as dictionaries with keys 'current_price', 'currency', 'rate'
     # stock_news is a dictionary with keys as ticker symbols and values as dictionaries with keys as news source names and values as lists of news strings
+
     stocks_and_info = "\n"
     for (ticker, info) in stock_pile.items():
         stocks_and_info += f"        - {ticker}: Current Price: {info['current_price']} {info['currency']}"
@@ -103,9 +109,10 @@ def stock_analyst(stock_pile, stock_news):
 
     news_section = "\n"
     for ticker, news_list in stock_news.items():
-        news_section += f"{ticker} News:\n"
+        news_section += f"    {ticker} News:\n"
         for news in news_list:
-            news_section += f"    {news}\n"
+            news = news.replace('\n', ' ').replace('\r', ' ')
+            news_section += f"        {news}\n"
 
     prompt = f"""    
     Given the following stock information, 
@@ -136,6 +143,7 @@ def stock_analyst(stock_pile, stock_news):
     Here is the stock information: {stocks_and_info}
     Here is the recent news information: {news_section}
     """
+    logging.info('USER PROMPT:'+prompt)
     client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
     response = client.chat.completions.create(
         model="gpt-4",
@@ -148,6 +156,7 @@ def stock_analyst(stock_pile, stock_news):
         stop=None,
         temperature=0.7,
     )
+    logging.info('AI RESPONSE:\n'+"\n    ".join(response.choices[0].message.content.splitlines()))
     # generate a dictionary from the response
     # keys are the ticker symbols
     # values are a dictionary with keys 'chance' and 'risk'
@@ -203,6 +212,7 @@ def stock_analyst(stock_pile, stock_news):
 
 def daily_report(tickers):
     stock_pile = {}
+    logging.basicConfig(filename='ai_analysis.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
     for (ticker,_) in tickers:
         (current_price, currency, rate) = stockdata.get_stock_price(ticker)
