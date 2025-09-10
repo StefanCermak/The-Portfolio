@@ -6,6 +6,7 @@ from tkcalendar import DateEntry
 
 import datetime
 import webbrowser
+import threading
 
 import globals
 import Db
@@ -35,11 +36,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 class ToolTip:
     def __init__(self, widget):
+        """Initialisiert das Tooltip-Objekt für ein Widget."""
         self.widget = widget
         self.tipwindow = None
         self.label = None
 
     def showtip(self, text, x, y):
+        """Zeigt das Tooltip mit dem gegebenen Text an den Koordinaten (x, y) an."""
         if not text:
             return
         if self.tipwindow:
@@ -56,6 +59,7 @@ class ToolTip:
         label.pack(ipadx=1)
 
     def hidetip(self):
+        """Blendet das Tooltip aus."""
         tw = self.tipwindow
         self.tipwindow = None
         self.label = None
@@ -65,6 +69,7 @@ class ToolTip:
 
 class BrokerApp:
     def __init__(self):
+        """Initialisiert die Hauptanwendung und erstellt alle Tabs und Widgets."""
         self.db = Db.Db()
 
         self.Window = tk.Tk()
@@ -96,6 +101,7 @@ class BrokerApp:
         self.active_trades_tooltip = ToolTip(self.treeview_active_trades)
 
     def setup_tab_active_trades(self):
+        """Initialisiert und konfiguriert das Tab für aktive Trades."""
         self.active_trades_tab.sort = "name"
         self.active_trades_tab.columnconfigure(0, weight=1)
         self.active_trades_tab.rowconfigure(0, weight=0) # Menubar
@@ -103,7 +109,7 @@ class BrokerApp:
 
         self.active_trades_menu_frame = ttk.Frame(self.active_trades_tab)
         self.active_trades_menu_frame.grid(column=0, row=0, padx=0, pady=0, sticky="nsew")
-        self.active_trades_button_ai_analysis = ttk.Button(self.active_trades_menu_frame, text="AI stock analysis",
+        self.active_trades_button_ai_analysis = ttk.Button(self.active_trades_menu_frame, text="🧠stock analysis",
                                                           command=self.update_ai_analysis)
         self.active_trades_button_ai_analysis.grid(column=0, row=0, padx=0, pady=0)
 
@@ -144,6 +150,7 @@ class BrokerApp:
         self.update_tab_active_trades()
 
     def setup_tab_trade_history(self):
+        """Initialisiert und konfiguriert das Tab für die Trade-Historie."""
         self.trade_history_tab.columnconfigure(0, weight=1)
         self.trade_history_tab.rowconfigure(0, weight=1)
         self.treeview_trade_history = ttk.Treeview(
@@ -177,6 +184,7 @@ class BrokerApp:
         self.update_tab_trade_history()
 
     def setup_tab_manual_trade(self):
+        """Initialisiert und konfiguriert das Tab für manuelle Trades."""
         self.tab_manual_frame_common = ttk.Frame(self.manual_trade_tab)
         self.tab_manual_frame_common.grid(column=0, row=0, columnspan=2, padx=10, pady=10, sticky="nsew")
         self.manual_trade_label_stockname = ttk.Label(self.tab_manual_frame_common, text="Stock Name:")
@@ -225,6 +233,7 @@ class BrokerApp:
         self.update_tab_manual_trade()
 
     def setup_tab_statistics(self):
+        """Initialisiert und konfiguriert das Tab für Statistiken."""
         self.setup_tab_statistics_frame_active = ttk.LabelFrame(self.statistics_tab, text="Active Trades Statistics")
         self.setup_tab_statistics_frame_active.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
         self.setup_tab_statistics_frame_history = ttk.LabelFrame(self.statistics_tab, text="Trade History Statistics")
@@ -264,6 +273,7 @@ class BrokerApp:
         self.update_tab_statistics()
 
     def setup_tab_settings(self):
+        """Initialisiert und konfiguriert das Tab für Einstellungen."""
         self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab,
                                                     text="Ticker Symbol <-> Personal Stock Name Matching")
         self.frame_ticker_matching.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
@@ -335,18 +345,21 @@ class BrokerApp:
         self.update_tab_settings()
 
     def setup_tab_about(self):
+        """Initialisiert und konfiguriert das About-Tab."""
         self.about_label = ttk.Label(self.about_tab,
                                      text=f"{globals.APP_NAME}\nVersion: {globals.APP_VERSION}\nAuthor: {globals.APP_AUTHOR}\n{globals.APP_COPYRIGHT}",
                                      justify="center")
         self.about_label.pack(expand=True)
 
     def update_all_tabs(self):
+        """Aktualisiert alle Tabs der Anwendung."""
         self.update_tab_active_trades()
         self.update_tab_trade_history()
         self.update_tab_manual_trade()
         self.update_tab_settings()
 
     def update_tab_active_trades(self):
+        """Aktualisiert die Anzeige der aktiven Trades."""
         trades = self.db.get_current_stock_set()
         for item in self.treeview_active_trades.get_children():
             self.treeview_active_trades.delete(item)
@@ -438,6 +451,7 @@ class BrokerApp:
                 self.treeview_active_trades.item(id, tags=(tag,))
 
     def update_tab_trade_history(self):
+        """Aktualisiert die Anzeige der Trade-Historie."""
         trades = self.db.get_history_stock_set()
         for item in self.treeview_trade_history.get_children():
             self.treeview_trade_history.delete(item)
@@ -488,6 +502,7 @@ class BrokerApp:
             self.treeview_trade_history.item(stock_id, tags=(tag,))
 
     def update_tab_manual_trade(self):
+        """Aktualisiert die Anzeige und Auswahlmöglichkeiten im Tab für manuelle Trades."""
         stocknames = sorted(self.db.get_stock_set())
         self.manual_trade_combobox_stockname['values'] = stocknames
         self.manual_trade_combobox_stockname.set('')
@@ -495,11 +510,13 @@ class BrokerApp:
         self.manual_trade_combobox_ticker.set('')
 
     def update_tab_settings(self):
+        """Aktualisiert die Einstellungen und deren Anzeige."""
         stocknames_with_tickers = self.db.get_stocknames_with_tickers()
         self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
         self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
 
     def update_tab_statistics(self):
+        """Aktualisiert die Statistik-Anzeige für aktive und historische Trades."""
         # Active Trades Statistics
         current_stocks = self.db.get_current_stock_set()
         stocks = set()
@@ -553,6 +570,7 @@ class BrokerApp:
         # Not implemented yet
 
     def add_trade(self):
+        """Fügt einen neuen Trade basierend auf den Benutzereingaben hinzu."""
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbol = self.manual_trade_combobox_ticker.get()
 
@@ -572,6 +590,7 @@ class BrokerApp:
         self.update_all_tabs()
 
     def sell_trade(self):
+        """Verkauft einen Trade basierend auf den Benutzereingaben."""
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbol = self.manual_trade_combobox_ticker.get()
 
@@ -589,6 +608,7 @@ class BrokerApp:
         self.update_all_tabs()
 
     def store_long_name(self):
+        """Speichert einen neuen langen Namen für ein Ticker-Symbol."""
         ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
         stockname = self.setup_edit_stockname_new_symbol.get()
         if ticker_symbol == "" or stockname == "":
@@ -598,11 +618,13 @@ class BrokerApp:
         self.setup_combobox_stockname_symbol_matching.set(stockname)
 
     def store_openai_api_key(self):
+        """Speichert den OpenAI API Key in der Konfiguration."""
         api_key = self.entry_openai_api_key.get().strip()
         globals.USER_CONFIG["OPEN_AI_API_KEY"] = api_key
         globals.save_user_config()
 
     def browse_import_account_statements_folder(self):
+        """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""
         folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
         if folder_path:
             folder_path = tools.path_smart_shorten(folder_path)
@@ -611,30 +633,55 @@ class BrokerApp:
             globals.save_user_config()
 
     def import_account_statements(self):
+        """Importiert Kontoauszüge aus dem ausgewählten Ordner."""
         folder_path = self.strvar_import_account_statements_folder_path.get()
         if folder_path:
             import_account_statements.from_folder(folder_path, self.db)
             self.update_all_tabs()
 
     def update_ai_analysis(self):
+        """Führt eine KI-Analyse für die aktuellen Aktien durch und speichert das Ergebnis."""
+
+        def run_ai_analysis_thread(ticker_symbols):
+            try:
+                self.active_trades_button_ai_analysis.config(state=tk.DISABLED)
+                self.active_trades_button_ai_analysis.config(text="🧠💭💭💭💭")
+                ai_report = daily_report.daily_report(ticker_symbols)
+                self.Window.after(0, lambda: handle_ai_report(ai_report))
+
+            except Exception as e:
+                messagebox.showerror("AI Analysis Error", f"An error occurred during AI analysis:\n{str(e)}")
+                self.active_trades_button_ai_analysis.config(state=tk.NORMAL)
+                self.active_trades_button_ai_analysis.config(text="🧠stock analysis")
+
+        def handle_ai_report(ai_report):
+            if ai_report:
+                self.db.add_new_analysis(ai_report)
+                self.update_tab_active_trades()
+            self.active_trades_button_ai_analysis.config(state=tk.NORMAL)
+            self.active_trades_button_ai_analysis.config(text="🧠stock analysis")
+
         stocknames = self.db.get_current_stock_set()
-        ticker_symbols = [self.db.get_ticker_symbol(name) for name in stocknames.keys()]
-        ai_report = daily_report.daily_report(ticker_symbols)
-        self.db.add_new_analysis(ai_report)
+        ticker_symbols = [(ticker, name) for name in stocknames.keys() if (ticker := self.db.get_ticker_symbol(name)) is not None]
+        threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 
     def on_stock_name_heading_click(self):
+        """Sortiert die aktiven Trades nach Namen, wenn auf die Spaltenüberschrift geklickt wird."""
         self.active_trades_tab.sort = "name"
         self.update_tab_active_trades()
 
     def on_chance_heading_click(self):
+        """Sortiert die aktiven Trades nach Chance, wenn auf die Spaltenüberschrift geklickt wird."""
         self.active_trades_tab.sort = "chance"
         self.update_tab_active_trades()
 
     def on_risk_heading_click(self):
+        """Sortiert die aktiven Trades nach Risiko, wenn auf die Spaltenüberschrift geklickt wird."""
         self.active_trades_tab.sort = "risk"
         self.update_tab_active_trades()
 
     def on_active_trades_motion(self, event):
+        """Zeigt Tooltips für Chance- und Risiko-Spalten bei Mausbewegung an."""
         region = self.treeview_active_trades.identify("region", event.x, event.y)
         if region != "cell":
             self.active_trades_tooltip.hidetip()
@@ -677,6 +724,7 @@ class BrokerApp:
         self.active_trades_tooltip.hidetip()
 
     def on_active_trades_treeview_click(self, event):
+        """Öffnet die Yahoo Finance Seite für das ausgewählte Wertpapier bei Doppelklick."""
         #get ticker symbol from selected row
         selected_item = self.treeview_active_trades.selection()
         if selected_item:
@@ -691,6 +739,7 @@ class BrokerApp:
                     return "break"
 
     def on_history_trades_treeview_click(self, event):
+        """Öffnet die Yahoo Finance Seite für das ausgewählte Wertpapier in der Historie bei Doppelklick."""
         #get ticker symbol from selected row
         selected_item = self.treeview_trade_history.selection()
         if selected_item:
@@ -705,6 +754,7 @@ class BrokerApp:
                     return "break"
 
     def on_manual_trade_combobox_stockname_selected(self, event):
+        """Aktualisiert die Ticker-Auswahl und Buttons, wenn ein Aktienname ausgewählt wird."""
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
         if ticker_symbols is None:
@@ -737,6 +787,7 @@ class BrokerApp:
                     self.manual_trade_button_sell.config(state=tk.DISABLED)
 
     def on_manual_trade_combobox_ticker_selected(self, event):
+        """Aktualisiert die Anzeige und Buttons, wenn ein Ticker ausgewählt wird."""
         ticker_symbol = self.manual_trade_combobox_ticker.get()
         stockname = self.db.get_stockname(ticker_symbol)
         if stockname is not None:
@@ -760,6 +811,7 @@ class BrokerApp:
             self.manual_trade_button_sell.config(state=tk.DISABLED)
 
     def on_add_combobox_stockname_selected(self, event):
+        """Aktualisiert die Ticker-Auswahl im Hinzufügen-Dialog, wenn ein Aktienname ausgewählt wird."""
         stockname = self.add_combobox_stockname.get()
         ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
         if ticker_symbols is None:
@@ -775,6 +827,7 @@ class BrokerApp:
                     self.add_combobox_ticker.set(ticker_symbols[0])
 
     def on_setup_combobox_stockname_ticker_matching_selected(self, event):
+        """Aktualisiert die Anzeige, wenn ein Ticker im Matching-Tab ausgewählt wird."""
         ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
         stockname = self.db.get_stockname(ticker_symbol)
         if stockname is not None:
@@ -783,6 +836,7 @@ class BrokerApp:
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
     def on_setup_combobox_stockname_symbol_matching_selected(self, event):
+        """Aktualisiert die Anzeige, wenn ein Aktienname im Matching-Tab ausgewählt wird."""
         stockname = self.setup_combobox_stockname_symbol_matching.get()
         ticker_symbol = self.db.get_ticker_symbol(stockname)
         if ticker_symbol is not None:
@@ -791,5 +845,6 @@ class BrokerApp:
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
     def run(self):
+        """Startet die Haupt-Event-Loop der Anwendung."""
         self.Window.mainloop()
         globals.save_user_config()

@@ -7,7 +7,7 @@ import stockdata
 import globals
 import Db
 
-mydb = Db.Db()
+
 Rss_Feeds = [
     "https://www.wallstreet-online.de/rss/nachrichten-aktien-indizes.xml",
     "https://www.finanzen.net/rss/news",
@@ -30,17 +30,16 @@ Rss_Feeds = [
 
 def get_rss_result(tickers, count_per_ticker=10):
     keywords = []
-    for ticker in tickers:
-        name = mydb.get_stockname(ticker).lower()
+    for (ticker, name) in tickers:
         if ' ' in name:
-            name = name.split(' ')[0]
-
+            name = name.split(' ')[0].lower()
+        else:
+            name = name.lower()
         if '.' in ticker:
             ticker_short =ticker.split('.')[0].lower()
         else:
             ticker_short = ticker.lower()
         keywords.append((ticker, ticker_short, name))
-
     news_dict = {ticker: [] for (ticker, _, _) in keywords}
     for feed_url in Rss_Feeds:
         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
@@ -50,19 +49,20 @@ def get_rss_result(tickers, count_per_ticker=10):
         for entry in feed.entries:
             title = entry.get('title', '')
             summary = entry.get('summary', '')
+            title_lower = title.lower()
+            summary_lower = summary.lower()
 
             for ticker, ticker_short, name in keywords:
-                if ticker_short in title.lower() or ticker_short in summary.lower() or name in title.lower() or name in summary.lower():
+                if ticker_short in title_lower or ticker_short in summary_lower or name in title_lower or name in summary_lower:
                     text = f"<news>: {title} :-> {summary}"
                     if text in news_dict[ticker] or len(news_dict[ticker]) >= count_per_ticker:
                         continue
                     news_dict[ticker].append(f"<news>: {title} :-> {summary}")
-                    # print(f"    Found entry: {title}")
+                    #print(f"    Found entry: {title}")
                     break
     return news_dict
 
-def get_duckduckgo_result(ticker, count=5):
-    company_name = mydb.get_stockname(ticker)
+def get_duckduckgo_result(company_name, count=5):
     with DDGS() as ddgs:
         results = ddgs.text(f"{company_name} News", max_results=count)
         if results:
@@ -71,8 +71,8 @@ def get_duckduckgo_result(ticker, count=5):
 
 def collect_news(tickers):
     stock_news = get_rss_result(tickers)
-    for ticker in tickers:
-        duck_news = get_duckduckgo_result(ticker)
+    for (ticker, company_name) in tickers:
+        duck_news = get_duckduckgo_result(company_name)
         if duck_news:
             if ticker in stock_news:
                 stock_news[ticker].extend(duck_news)
@@ -146,7 +146,7 @@ def stock_analyst(stock_pile, stock_news):
         max_tokens=1200,
         n=1,
         stop=None,
-        temperature=0.3,
+        temperature=0.7,
     )
     # generate a dictionary from the response
     # keys are the ticker symbols
@@ -204,7 +204,7 @@ def stock_analyst(stock_pile, stock_news):
 def daily_report(tickers):
     stock_pile = {}
 
-    for ticker in tickers:
+    for (ticker,_) in tickers:
         (current_price, currency, rate) = stockdata.get_stock_price(ticker)
         if current_price is None:
             continue
@@ -216,8 +216,10 @@ def daily_report(tickers):
     return analyst_dict
 
 if __name__ == "__main__":
-    tickers = ["AAPL", "RHM.DE"]
-
+    stock = ["AAPL", "RHM.DE"]
+    is_mydb = Db.Db()
+    tickers = [(ticker, name) for ticker in stock if (name := is_mydb.get_stockname(ticker)) is not None]
+    #print(tickers)
     print(daily_report(tickers))
     #print(get_rss_result(tickers))
     if False:
