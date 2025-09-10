@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkcalendar import DateEntry
 
 import datetime
@@ -650,9 +650,14 @@ class BrokerApp:
                 self.Window.after(0, lambda: handle_ai_report(ai_report))
 
             except Exception as e:
-                messagebox.showerror("AI Analysis Error", f"An error occurred during AI analysis:\n{str(e)}")
-                self.active_trades_button_ai_analysis.config(state=tk.NORMAL)
-                self.active_trades_button_ai_analysis.config(text="🧠stock analysis")
+                def _show_error_and_reset():
+                    messagebox.showerror("AI Analysis Error", f"An error occurred during AI analysis:\n{str(err_msg)}")
+                    self.active_trades_button_ai_analysis.config(state=tk.NORMAL)
+                    self.active_trades_button_ai_analysis.config(text="🧠stock analysis")
+
+                err_msg = str(e)
+                self.Window.after(0, _show_error_and_reset)
+
 
         def handle_ai_report(ai_report):
             if ai_report:

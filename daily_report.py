@@ -88,8 +88,8 @@ def stock_analyst_bill(response):
     input_tokens = response.usage.prompt_tokens
     output_tokens = response.usage.completion_tokens
     total_tokens = response.usage.total_tokens
-    cost_per_1M_input_usd = 1.25 # USD per 1M tokens for gpt-4
-    cost_per_1M_output_usd = 10.00 # USD per 1M tokens for gpt-4
+    cost_per_1M_input_usd = 1.25 # USD per 1M tokens for gpt-5
+    cost_per_1M_output_usd = 10.00 # USD per 1M tokens for gpt-5
     cost_input_usd = (input_tokens / 1_000_000) * cost_per_1M_input_usd
     cost_output_usd = (output_tokens / 1_000_000) * cost_per_1M_output_usd
     total_cost_usd = cost_input_usd + cost_output_usd
@@ -146,15 +146,14 @@ def stock_analyst(stock_pile, stock_news):
     logging.info('USER PROMPT:'+prompt)
     client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": "Du bist ein deutschsprachiger Finanzanalyst. Antworte ausschließlich im CSV-Tabellenformat, ohne zusätzlichen Text, aber ver den Tabellen ist eine Zeile mit der Tabellenüberschrift  'Chance Table:' und 'Risk Table:'."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1200,
+        max_completion_tokens=10000,
         n=1,
         stop=None,
-        temperature=0.7,
     )
     logging.info('AI RESPONSE:\n'+"\n    ".join(response.choices[0].message.content.splitlines()))
     # generate a dictionary from the response
