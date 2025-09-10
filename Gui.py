@@ -34,6 +34,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """ GUI for the stock broker application """
 
+def wrap_text_with_preferred_breaks(text, max_width):
+    """Wraps the given text to the specified width."""
+    lines = []
+    line = ""
+    for word in text.split():
+        if word[-1] in [".", ",", ";", ":", "!", "?"]:
+            width = max_width*0.75
+        else:
+            width = max_width
+        if len(line) + len(word) + 1 > width:
+            lines.append(line)
+            line = word
+        else:
+            line += " " + word
+    if line:
+        lines.append(line)
+    return '\n'.join(lines)
+
+
 class ToolTip:
     def __init__(self, widget):
         """Initialisiert das Tooltip-Objekt für ein Widget."""
@@ -45,6 +64,8 @@ class ToolTip:
         """Zeigt das Tooltip mit dem gegebenen Text an den Koordinaten (x, y) an."""
         if not text:
             return
+        if len(text) > 100:
+            text = wrap_text_with_preferred_breaks(text, 80)
         if self.tipwindow:
             tw = self.tipwindow
             if self.label:

@@ -88,8 +88,8 @@ def stock_analyst_bill(response):
     input_tokens = response.usage.prompt_tokens
     output_tokens = response.usage.completion_tokens
     total_tokens = response.usage.total_tokens
-    cost_per_1M_input_usd = 1.25 # USD per 1M tokens for gpt-5
-    cost_per_1M_output_usd = 10.00 # USD per 1M tokens for gpt-5
+    cost_per_1M_input_usd = 0.25 # USD per 1M tokens for gpt-5-mini
+    cost_per_1M_output_usd = 2.00 # USD per 1M tokens for gpt-5-mini
     cost_input_usd = (input_tokens / 1_000_000) * cost_per_1M_input_usd
     cost_output_usd = (output_tokens / 1_000_000) * cost_per_1M_output_usd
     total_cost_usd = cost_input_usd + cost_output_usd
