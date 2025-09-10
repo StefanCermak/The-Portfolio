@@ -1,20 +1,84 @@
 from openai import OpenAI
 from ddgs import DDGS
-
+import feedparser
+import requests
 
 import stockdata
 import globals
 import Db
 
 mydb = Db.Db()
+Rss_Feeds = [
+    "https://www.wallstreet-online.de/rss/nachrichten-aktien-indizes.xml",
+    "https://www.finanzen.net/rss/news",
+    "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen",
+    "https://www.ad-hoc-news.de/rss/nachrichten.xml",
+    "https://www.onvista.de/news/feed/rss.xml?orderBy=datetime&newsType%5B0%5D=marketreport&supplier%5B0%5D=dpa-AFX&tags%5B0%5D=Deutschland&",
+    "https://api.boerse-frankfurt.de/v1/feeds/news.rss",
+    "https://www.aktiencheck.de/rss/news.rss2",
+    "https://www.aktiennews24.de/thema/news/feed/",
+    "https://www.wallstreet-online.de/rss/board-dax.xml",
+    "https://www.deraktionaer.de/aktionaer-news.rss",
+    "https://www.derstandard.at/rss/wirtschaft",
+    "https://www.derstandard.at/rss/wirtschaft",
+    "https://www.diepresse.com/rss/",
+    "https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml",
+    "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
+    "https://rss.orf.at/news.xml"
+    ]
 
-def get_duckduckgo_result(ticker, count=10):
+
+def get_rss_result(tickers, count_per_ticker=10):
+    keywords = []
+    for ticker in tickers:
+        name = mydb.get_stockname(ticker).lower()
+        if ' ' in name:
+            name = name.split(' ')[0]
+
+        if '.' in ticker:
+            ticker_short =ticker.split('.')[0].lower()
+        else:
+            ticker_short = ticker.lower()
+        keywords.append((ticker, ticker_short, name))
+
+    news_dict = {ticker: [] for (ticker, _, _) in keywords}
+    for feed_url in Rss_Feeds:
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        response = requests.get(feed_url, headers=headers)
+        feed = feedparser.parse(response.content)
+        # print(f"Processing feed: {feed_url} with {len(feed.entries)} entries")
+        for entry in feed.entries:
+            title = entry.get('title', '')
+            summary = entry.get('summary', '')
+
+            for ticker, ticker_short, name in keywords:
+                if ticker_short in title.lower() or ticker_short in summary.lower() or name in title.lower() or name in summary.lower():
+                    text = f"<news>: {title} :-> {summary}"
+                    if text in news_dict[ticker] or len(news_dict[ticker]) >= count_per_ticker:
+                        continue
+                    news_dict[ticker].append(f"<news>: {title} :-> {summary}")
+                    # print(f"    Found entry: {title}")
+                    break
+    return news_dict
+
+def get_duckduckgo_result(ticker, count=5):
     company_name = mydb.get_stockname(ticker)
     with DDGS() as ddgs:
         results = ddgs.text(f"{company_name} News", max_results=count)
         if results:
             return [('<news>: '+r.get('title')+' :->'+r.get('body')) for r in results[:count] if 'body' in r]
     return []
+
+def collect_news(tickers):
+    stock_news = get_rss_result(tickers)
+    for ticker in tickers:
+        duck_news = get_duckduckgo_result(ticker)
+        if duck_news:
+            if ticker in stock_news:
+                stock_news[ticker].extend(duck_news)
+            else:
+                stock_news[ticker] = duck_news
+    return stock_news
 
 def stock_analyst_bill(response):
     input_tokens = response.usage.prompt_tokens
@@ -38,11 +102,10 @@ def stock_analyst(stock_pile, stock_news):
         stocks_and_info += "\n"
 
     news_section = "\n"
-    for ticker, sources in stock_news.items():
+    for ticker, news_list in stock_news.items():
         news_section += f"{ticker} News:\n"
-        for source, news_list in sources.items():
-            for news in news_list:
-                news_section += f"    - {source}: {news}\n"
+        for news in news_list:
+            news_section += f"    {news}\n"
 
     prompt = f"""    
     Given the following stock information, 
@@ -61,7 +124,7 @@ def stock_analyst(stock_pile, stock_news):
     Make sure the csv format is correct, so that it can be easily imported into a spreadsheet program.
     If you do not have enough information to provide a chance or risk indicator, use 0 for chance and 100 for risk, and explain in the verbal explanation that there was not enough information.
     Do not make up information, only use what is provided and what you can find in a web search.
-    The explanations should be concise, no more than 240 words, and in German.
+    The explanations should be concise, no more than 1000 words, and in German.
     Use the following format for the tables:
     Chance Table:
     "AAPL",85,"Apple Inc. has strong market position and positive recent news."
@@ -83,7 +146,7 @@ def stock_analyst(stock_pile, stock_news):
         max_tokens=1000,
         n=1,
         stop=None,
-        temperature=0.7,
+        temperature=0.5,
     )
     # generate a dictionary from the response
     # keys are the ticker symbols
@@ -140,13 +203,13 @@ def stock_analyst(stock_pile, stock_news):
 
 def daily_report(tickers):
     stock_pile = {}
-    stock_news = {}
+
     for ticker in tickers:
         (current_price, currency, rate) = stockdata.get_stock_price(ticker)
         if current_price is None:
             continue
         stock_pile[ticker] = {'current_price': current_price, 'currency': currency, 'rate': rate}
-        stock_news[ticker] = {'DuckDuck': get_duckduckgo_result(ticker)}
+    stock_news = collect_news(tickers)
 
     analyst_dict = stock_analyst(stock_pile, stock_news)
 
@@ -155,4 +218,13 @@ def daily_report(tickers):
 if __name__ == "__main__":
     tickers = ["AAPL", "RHM.DE"]
 
-    print(daily_report(tickers))
+    #print(daily_report(tickers))
+    #print(get_rss_result(tickers))
+    if True:
+        news = collect_news(tickers)
+        for (ticker, news_list) in news.items():
+            print(f"{ticker} News:")
+            for news in news_list:
+                print(f"    - {news}")
+            print()
+

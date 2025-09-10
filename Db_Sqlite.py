@@ -73,11 +73,22 @@ class DbSqlite:
 
     def get_current_stock_set(self):
         # Returns a dictionary with stockname as key and a dictionary with current quantity and current invest as value
-        self.cursor.execute('''SELECT s.stockname, a.quantity, a.invest, a.trade_date, ai.chance, ai.chance_explanation, ai.risk, ai.risk_explanation
-                               FROM active_trades a
-                               JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
-                               LEFT JOIN ai_stock_analysis ai ON a.ticker_symbol = ai.ticker_symbol
-                               WHERE a.is_active_series = 1;''')
+        self.cursor.execute('''
+            SELECT s.stockname, a.quantity, a.invest, a.trade_date,
+                   ai.chance, ai.chance_explanation, ai.risk, ai.risk_explanation
+            FROM active_trades a
+            JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
+            LEFT JOIN (
+                SELECT t1.*
+                FROM ai_stock_analysis t1
+                INNER JOIN (
+                    SELECT ticker_symbol, MAX(analysis_date) AS max_date
+                    FROM ai_stock_analysis
+                    GROUP BY ticker_symbol
+                ) t2 ON t1.ticker_symbol = t2.ticker_symbol AND t1.analysis_date = t2.max_date
+            ) ai ON a.ticker_symbol = ai.ticker_symbol
+            WHERE a.is_active_series = 1;
+        ''')
         rows = self.cursor.fetchall()
         dataset = dict()
         for row in rows:
