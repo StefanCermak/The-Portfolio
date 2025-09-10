@@ -124,7 +124,7 @@ def stock_analyst(stock_pile, stock_news):
     Make sure the csv format is correct, so that it can be easily imported into a spreadsheet program.
     If you do not have enough information to provide a chance or risk indicator, use 0 for chance and 100 for risk, and explain in the verbal explanation that there was not enough information.
     Do not make up information, only use what is provided and what you can find in a web search.
-    The explanations should be concise, no more than 1000 words, and in German.
+    The explanations should be concise, no more than 200 words, and in German.
     Use the following format for the tables:
     Chance Table:
     "AAPL",85,"Apple Inc. has strong market position and positive recent news."
@@ -140,13 +140,13 @@ def stock_analyst(stock_pile, stock_news):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a financial analyst."},
+            {"role": "system", "content": "Du bist ein deutschsprachiger Finanzanalyst. Antworte ausschließlich im CSV-Tabellenformat, ohne zusätzlichen Text, aber ver den Tabellen ist eine Zeile mit der Tabellenüberschrift  'Chance Table:' und 'Risk Table:'."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1000,
+        max_tokens=1200,
         n=1,
         stop=None,
-        temperature=0.5,
+        temperature=0.3,
     )
     # generate a dictionary from the response
     # keys are the ticker symbols
@@ -218,9 +218,9 @@ def daily_report(tickers):
 if __name__ == "__main__":
     tickers = ["AAPL", "RHM.DE"]
 
-    #print(daily_report(tickers))
+    print(daily_report(tickers))
     #print(get_rss_result(tickers))
-    if True:
+    if False:
         news = collect_news(tickers)
         for (ticker, news_list) in news.items():
             print(f"{ticker} News:")
