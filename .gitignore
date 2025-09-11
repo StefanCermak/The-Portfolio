@@ -1,7 +1,7 @@
 # Application specific files
 portfolio.db
 account_statements/
-config.json
+*.json
 *.log
 
 # Python cache files

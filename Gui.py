@@ -15,6 +15,10 @@ import tools
 import import_account_statements
 import daily_report
 
+# NEU: Importiere AboutTab
+from Gui_about_tab import AboutTab
+from Gui_settings_tab import SettingsTab
+
 """
 This file is part of "The Portfolio".
 
@@ -75,6 +79,7 @@ class BrokerApp:
     def __init__(self):
         """Initialisiert die Hauptanwendung und erstellt alle Tabs und Widgets."""
         self.db = Db.Db()
+        self.registered_update_functions = []
 
         self.Window = tk.Tk()
         self.Window.title(globals.APP_NAME)
@@ -99,8 +104,9 @@ class BrokerApp:
         self.setup_tab_trade_history()
         self.setup_tab_statistics()
         self.setup_tab_manual_trade()
-        self.setup_tab_settings()
-        self.setup_tab_about()
+
+        SettingsTab(self.settings_tab, self.update_all_tabs, self.register_update_all_tabs)
+        AboutTab(self.about_tab)
 
         self.active_trades_tooltip = ToolTip(self.treeview_active_trades)
         
@@ -280,92 +286,17 @@ class BrokerApp:
 
         self.update_tab_statistics()
 
-    def setup_tab_settings(self):
-        """Initialisiert und konfiguriert das Tab für Einstellungen."""
-        self.frame_ticker_matching = ttk.LabelFrame(self.settings_tab,
-                                                    text="Ticker Symbol <-> Personal Stock Name Matching")
-        self.frame_ticker_matching.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
-        self.label_ticker_matching = ttk.Label(self.frame_ticker_matching,
-                                               text="Select the Stock Name to be shown instead of the Ticker Symbol")
-        self.label_ticker_matching.grid(column=0, row=0, padx=10, pady=10, columnspan=4)
-
-        self.setup_combobox_stockname_symbol_matching = ttk.Combobox(self.frame_ticker_matching,
-                                                                     values=[], state="readonly")
-        self.setup_combobox_stockname_symbol_matching.grid(column=0, row=1, padx=10, pady=10)
-
-        self.setup_combobox_stockname_ticker_matching = ttk.Combobox(self.frame_ticker_matching,
-                                                                     values=[],
-                                                                     state="readonly")
-        self.setup_combobox_stockname_ticker_matching.grid(column=1, row=1, padx=10, pady=10)
-
-        self.setup_edit_stockname_new_symbol = ttk.Entry(self.frame_ticker_matching, width=20)
-        self.setup_edit_stockname_new_symbol.grid(column=2, row=1, padx=10, pady=10)
-
-        self.button_store_long_name = ttk.Button(self.frame_ticker_matching, text="Store Long Name",
-                                                 command=self.store_long_name)
-        self.button_store_long_name.grid(column=3, row=1, padx=10, pady=10)
-
-        self.setup_combobox_stockname_ticker_matching.bind("<<ComboboxSelected>>",
-                                                           self.on_setup_combobox_stockname_ticker_matching_selected)
-        self.setup_combobox_stockname_symbol_matching.bind("<<ComboboxSelected>>",
-                                                           self.on_setup_combobox_stockname_symbol_matching_selected)
-
-        self.frame_import_account_statements = ttk.LabelFrame(self.settings_tab, text="Import Account Statements")
-        self.frame_import_account_statements.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
-        self.label_import_account_statements_folder = ttk.Label(self.frame_import_account_statements,
-                                                                text="Import account statements from PDF files in a folder:")
-        self.label_import_account_statements_folder.grid(column=0, row=0, padx=10, pady=10)
-        self.strvar_import_account_statements_folder_path = tk.StringVar()
-        self.entry_import_account_statements_folder_path = ttk.Entry(self.frame_import_account_statements,
-                                                                     textvariable=self.strvar_import_account_statements_folder_path,
-                                                                     width=50)
-        self.entry_import_account_statements_folder_path.grid(column=1, row=0, padx=10, pady=10)
-        self.button_browse_import_account_statements_folder = ttk.Button(self.frame_import_account_statements,
-                                                                         text="Browse",
-                                                                         command=self.browse_import_account_statements_folder)
-        self.button_browse_import_account_statements_folder.grid(column=2, row=0, padx=10, pady=10)
-        self.button_import_account_statements = ttk.Button(self.frame_import_account_statements,
-                                                           text="Import Account Statements",
-                                                           command=self.import_account_statements)
-        self.button_import_account_statements.grid(column=0, row=1, columnspan=3, padx=10, pady=10)
-        if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG[
-            "account_statements_folder"] != "":
-            self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
-
-        self.frame_ai_configuration = ttk.LabelFrame(self.settings_tab, text="AI Configuration")
-        self.frame_ai_configuration.grid(column=0, row=2, padx=10, pady=10, sticky="nsew")
-        self.label_openai_api_key = ttk.Label(self.frame_ai_configuration, text="OpenAI API Key:")
-        self.label_openai_api_key.grid(column=0, row=0, padx=10, pady=10)
-        self.entry_openai_api_key = ttk.Entry(self.frame_ai_configuration, width=50)
-        self.entry_openai_api_key.grid(column=1, row=0, padx=10, pady=10)
-        if "OPEN_AI_API_KEY" in globals.USER_CONFIG and globals.USER_CONFIG["OPEN_AI_API_KEY"] != "":
-            self.entry_openai_api_key.insert(0, globals.USER_CONFIG["OPEN_AI_API_KEY"])
-        self.button_strore_openai_api_key = ttk.Button(self.frame_ai_configuration, text="Store API Key",
-                                                       command=self.store_openai_api_key)
-        self.button_strore_openai_api_key.grid(column=2, row=0, padx=10, pady=10)
-        self.label_openai_api_key_info = ttk.Label(self.frame_ai_configuration,
-                                                   text="You can get an API key from https://platform.openai.com/account/api-keys")
-        self.label_openai_api_key_info.grid(column=0, row=1, columnspan=2, padx=10, pady=10)
-        self.button_openai_website = ttk.Button(self.frame_ai_configuration, text="Open OpenAI Website",
-                                                command=lambda: webbrowser.open(
-                                                    "https://platform.openai.com/account/api-keys"))
-        self.button_openai_website.grid(column=3, row=1, padx=10, pady=10)
-
-        self.update_tab_settings()
-
-    def setup_tab_about(self):
-        """Initialisiert und konfiguriert das About-Tab."""
-        self.about_label = ttk.Label(self.about_tab,
-                                     text=f"{globals.APP_NAME}\nVersion: {globals.APP_VERSION}\nAuthor: {globals.APP_AUTHOR}\n{globals.APP_COPYRIGHT}",
-                                     justify="center")
-        self.about_label.pack(expand=True)
+    def register_update_all_tabs(self, func):
+        """Registriert eine Funktion, die aufgerufen wird, wenn alle Tabs aktualisiert werden sollen."""
+        self.registered_update_functions.append(func)
 
     def update_all_tabs(self):
         """Aktualisiert alle Tabs der Anwendung."""
         self.update_tab_active_trades()
         self.update_tab_trade_history()
         self.update_tab_manual_trade()
-        self.update_tab_settings()
+        for update_function in self.registered_update_functions:
+            update_function()
 
     def update_tab_active_trades(self):
         """Aktualisiert die Anzeige der aktiven Trades."""
@@ -572,12 +503,6 @@ class BrokerApp:
         self.manual_trade_combobox_ticker['values'] = []
         self.manual_trade_combobox_ticker.set('')
 
-    def update_tab_settings(self):
-        """Aktualisiert die Einstellungen und deren Anzeige."""
-        stocknames_with_tickers = self.db.get_stocknames_with_tickers()
-        self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
-        self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
-
     def update_tab_statistics(self):
         """Aktualisiert die Statistik-Anzeige für aktive und historische Trades."""
         # Active Trades Statistics
@@ -670,37 +595,7 @@ class BrokerApp:
 
         self.update_all_tabs()
 
-    def store_long_name(self):
-        """Speichert einen neuen langen Namen für ein Ticker-Symbol."""
-        ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
-        stockname = self.setup_edit_stockname_new_symbol.get()
-        if ticker_symbol == "" or stockname == "":
-            return
-        self.db.add_stockname_ticker(stockname, ticker_symbol, True)
-        self.update_all_tabs()
-        self.setup_combobox_stockname_symbol_matching.set(stockname)
 
-    def store_openai_api_key(self):
-        """Speichert den OpenAI API Key in der Konfiguration."""
-        api_key = self.entry_openai_api_key.get().strip()
-        globals.USER_CONFIG["OPEN_AI_API_KEY"] = api_key
-        globals.save_user_config()
-
-    def browse_import_account_statements_folder(self):
-        """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""
-        folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
-        if folder_path:
-            folder_path = tools.path_smart_shorten(folder_path)
-            self.strvar_import_account_statements_folder_path.set(folder_path)
-            globals.USER_CONFIG["account_statements_folder"] = folder_path
-            globals.save_user_config()
-
-    def import_account_statements(self):
-        """Importiert Kontoauszüge aus dem ausgewählten Ordner."""
-        folder_path = self.strvar_import_account_statements_folder_path.get()
-        if folder_path:
-            import_account_statements.from_folder(folder_path, self.db)
-            self.update_all_tabs()
 
     def update_ai_analysis(self):
         """Führt eine KI-Analyse für die aktuellen Aktien durch und speichert das Ergebnis."""
@@ -915,23 +810,7 @@ class BrokerApp:
                 else:
                     self.add_combobox_ticker.set(ticker_symbols[0])
 
-    def on_setup_combobox_stockname_ticker_matching_selected(self, _):
-        """Aktualisiert die Anzeige, wenn ein Ticker im Matching-Tab ausgewählt wird."""
-        ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
-        stockname = self.db.get_stockname(ticker_symbol)
-        if stockname is not None:
-            self.setup_combobox_stockname_symbol_matching.set(stockname)
-            self.setup_edit_stockname_new_symbol.delete(0, tk.END)
-            self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
-    def on_setup_combobox_stockname_symbol_matching_selected(self, _):
-        """Aktualisiert die Anzeige, wenn ein Aktienname im Matching-Tab ausgewählt wird."""
-        stockname = self.setup_combobox_stockname_symbol_matching.get()
-        ticker_symbol = self.db.get_ticker_symbol(stockname)
-        if ticker_symbol is not None:
-            self.setup_combobox_stockname_ticker_matching.set(ticker_symbol)
-            self.setup_edit_stockname_new_symbol.delete(0, tk.END)
-            self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
     def start_auto_update(self):
         """Startet das automatische Update für aktive Trades alle 5 Minuten."""
