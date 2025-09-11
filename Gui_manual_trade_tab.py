@@ -2,14 +2,31 @@ import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
 import datetime
+from typing import Callable, Any
 
 import stockdata
 import Db
 
 
 class ManualTradeTab:
-    def __init__(self, parent, update_all_tabs_callback, register_update_all_tabs):
-        """Initialisiert das Tab für manuelle Trades."""
+    """
+    Tab for manually adding and managing stock trades.
+    Allows the user to buy or sell stocks by entering trade details.
+    """
+    def __init__(
+        self,
+        parent: Any,
+        update_all_tabs_callback: Callable[[], None],
+        register_update_all_tabs: Callable[[Callable[[], None]], None]
+    ) -> None:
+        """
+        Initialize the ManualTradeTab.
+
+        Args:
+            parent: The parent tkinter widget.
+            update_all_tabs_callback: Callback to update all tabs.
+            register_update_all_tabs: Function to register the update callback.
+        """
         self.db = Db.Db()
         self.update_all_tabs = update_all_tabs_callback
         register_update_all_tabs(self.update_tab_manual_trade)
@@ -62,8 +79,11 @@ class ManualTradeTab:
         self.manual_trade_combobox_ticker.bind("<FocusOut>", self.on_manual_trade_combobox_ticker_selected)
         self.update_tab_manual_trade()
 
-    def update_tab_manual_trade(self):
-        """Aktualisiert die Anzeige und Auswahlmöglichkeiten im Tab für manuelle Trades."""
+    def update_tab_manual_trade(self) -> None:
+        """
+        Updates the display and selection options in the manual trade tab.
+        Refreshes the stock name and ticker comboboxes with current values.
+        """
         tickers_with_stockname = self.db.get_stocknames_with_tickers()
         stock_names = sorted(tickers_with_stockname.values())
         tickers = sorted(tickers_with_stockname.keys())
@@ -72,8 +92,11 @@ class ManualTradeTab:
         self.manual_trade_combobox_ticker['values'] = tickers
         self.manual_trade_combobox_ticker.set('')
 
-    def add_trade(self):
-        """Fügt einen neuen Trade basierend auf den Benutzereingaben hinzu."""
+    def add_trade(self) -> None:
+        """
+        Adds a new trade based on user input.
+        Reads the stock name, ticker, quantity, price, and date, then adds the trade to the database.
+        """
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbol = self.manual_trade_combobox_ticker.get()
         try:
@@ -89,8 +112,11 @@ class ManualTradeTab:
         self.manual_trade_entry_date.set_date(datetime.date.today())
         self.update_all_tabs()
 
-    def sell_trade(self):
-        """Verkauft einen Trade basierend auf den Benutzereingaben."""
+    def sell_trade(self) -> None:
+        """
+        Sells a trade based on user input.
+        Reads the stock name, ticker, earnings, and date, then updates the database accordingly.
+        """
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbol = self.manual_trade_combobox_ticker.get()
         try:
@@ -106,8 +132,13 @@ class ManualTradeTab:
         self.manual_trade_button_sell.config(state=tk.DISABLED)
         self.update_all_tabs()
 
-    def on_manual_trade_combobox_stockname_selected(self, _):
-        """Aktualisiert die Ticker-Auswahl und Buttons, wenn ein Aktienname ausgewählt wird."""
+    def on_manual_trade_combobox_stockname_selected(self, _: Any) -> None:
+        """
+        Updates the ticker selection and button states when a stock name is selected.
+
+        Args:
+            _: The tkinter event object (unused).
+        """
         stockname = self.manual_trade_combobox_stockname.get()
         tickers_with_stockname = self.db.get_stocknames_with_tickers()
         if stockname in tickers_with_stockname.values():
@@ -142,8 +173,13 @@ class ManualTradeTab:
                     self.manual_trade_button_buy.config(state=tk.NORMAL)
                     self.manual_trade_button_sell.config(state=tk.DISABLED)
 
-    def on_manual_trade_combobox_ticker_selected(self, _):
-        """Aktualisiert die Anzeige und Buttons, wenn ein Ticker ausgewählt wird."""
+    def on_manual_trade_combobox_ticker_selected(self, _: Any) -> None:
+        """
+        Updates the display and button states when a ticker is selected.
+
+        Args:
+            _: The tkinter event object (unused).
+        """
         ticker_symbol = self.manual_trade_combobox_ticker.get()
         stockname = self.db.get_stockname(ticker_symbol)
         if stockname is None:
