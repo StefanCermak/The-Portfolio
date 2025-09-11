@@ -140,7 +140,6 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                 in_table = False
                 continue
             if in_table:
-                print(line)
                 if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
                     continue
                 match line.split():
@@ -186,8 +185,6 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                         current_line = {}
                     case _:
                         pass
-            else:
-                print('+++'+line)
     return transactions
 
 
