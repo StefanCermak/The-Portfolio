@@ -1,7 +1,7 @@
 import tkinter.ttk as ttk
 import globals
 import Db
-import stockdata
+
 
 class TradeHistoryTab:
     def __init__(self, parent, register_update_all_tabs):
@@ -59,7 +59,8 @@ class TradeHistoryTab:
                 days_held = (data['end_date'] - data['start_date']).days
                 profit_percent_per_day = ((1 + profit_percent / 100) ** (
                         1 / days_held) - 1) * 100 if days_held > 0 else 0.0
-                profit_percent_per_year = ((1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
+                profit_percent_per_year = ((
+                                                       1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
                 tag = 'neutral'
                 if profit_eur > 0.01:
                     tag = 'profit_positive'
@@ -100,4 +101,3 @@ class TradeHistoryTab:
                     url = f"https://finance.yahoo.com/quote/{ticker_symbol}/"
                     webbrowser.open(url)
                     return "break"
-

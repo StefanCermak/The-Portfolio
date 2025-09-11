@@ -7,6 +7,7 @@ import pdfplumber
 
 import stockdata
 import Db
+
 """
 This file is part of "The Portfolio".
 
@@ -24,8 +25,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>. 
 """
 
-
 """ Module for importing account statements from files into the database. """
+
 
 def from_folder(dir_path, db: Db.Db):
     """
@@ -59,13 +60,13 @@ def from_folder(dir_path, db: Db.Db):
     logger.info(f"Import completed. Files processed: {files_processed}, Transactions imported: {transactions_imported}")
 
 
-def process_transactions(db: Db.Db, transactions):
+def process_transactions(db: Db.Db, transactions: list):
     """
     Process a single transaction and update the database accordingly.
 
     Args:
         db (Db): An instance of the Db class to interact with the database.
-        transaction (dict): A dictionary containing transaction details.
+        transactions (dict): A dictionary containing transaction details.
     """
 
     for transaction in transactions:
@@ -88,7 +89,8 @@ def process_transactions(db: Db.Db, transactions):
             db.add_stock_trade(ticker_symbol, -quantity, -price, trade_date)
             logging.info(f"Processed Sell transaction: {quantity} of {ticker_symbol} at {price} on {trade_date}")
         else:
-            logging.warning(f"Unknown transaction type {transaction['type']} for stockname {stockname}. Skipping transaction.")
+            logging.warning(
+                f"Unknown transaction type {transaction['type']} for stockname {stockname}. Skipping transaction.")
             continue
 
 
@@ -111,9 +113,10 @@ def pdf_reader(file_path):
     return []
 
 
-def pdf_reader_traderepublic(pdffile:pdfplumber):
+def pdf_reader_traderepublic(pdffile: pdfplumber):
     split_description_regex = re.compile(r'(\w+) (.*), +quantity: +([\d.]+)')
-    def finish_line( transactions, current_line):
+
+    def finish_line(transactions, current_line):
         regex_result = split_description_regex.match(current_line['description'])
         if regex_result:
             stockname = regex_result.group(2)
@@ -124,7 +127,9 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                 print("No year in line:", current_line)
                 return
             date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
-            transactions.append({'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname, 'quantity': quantity, 'price': current_line['price']})
+            transactions.append(
+                {'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname,
+                 'quantity': quantity, 'price': current_line['price']})
 
     transactions = []
 
@@ -132,7 +137,7 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
         text = page.extract_text()
         in_table = False
         current_line = {}
-        log=False
+        log = False
         for line in text.split('\n'):
             if line.startswith("DATUM"):
                 in_table = True
@@ -149,12 +154,16 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                 if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
                     continue
                 match line.split():
-                    case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                    case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
+                                                   "Sept.", "Okt.", "Nov.", "Dez."]:
                         current_line['day'] = int(day)
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."].index(month) + 1
-                    case [day, month, *description] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                                                 "Okt.", "Nov.", "Dez."].index(month) + 1
+                    case [day, month, *description] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
+                                                                 "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
                         current_line['day'] = int(day)
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."].index(month) + 1
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                                                 "Okt.", "Nov.", "Dez."].index(month) + 1
                         if description[0] in ['Buy', 'Sell', 'Savings']:
                             current_line['type'] = description[0]
                             if description[0] == 'Savings':
@@ -165,22 +174,22 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                         current_line['description'] = ' '.join(description)
                     case ['Handel', price, '€', _, '€']:
                         current_line['price'] = float(price.replace('.', '').replace(',', '.'))
-                    case ['Handel', *tableline ]:
+                    case ['Handel', *tableline]:
                         if tableline[0] in ['Buy', 'Sell', 'Savings']:
                             current_line['type'] = tableline[0]
                             if 'Savings' == tableline[0]:
                                 current_line['type'] = 'Buy'
                                 tableline = tableline[4:]
                             else:
-                                #delere first element
+                                # delete first element
                                 tableline = tableline[2:]
                             if "€" == tableline[-1] and "€" == tableline[-3]:
                                 current_line['price'] = float(tableline[-4].replace('.', '').replace(',', '.'))
                                 del tableline[-4:]
-                            current_line['description']=current_line.get('description','') + ' '.join(tableline)
+                            current_line['description'] = current_line.get('description', '') + ' '.join(tableline)
                     case [year, *linerest] if year.isdigit() and int(year) > 1900:
                         if 'description' in current_line.keys():
-                            current_line['description'] += ' ' +' '.join(linerest)
+                            current_line['description'] += ' ' + ' '.join(linerest)
                             current_line['year'] = int(year)
                             finish_line(transactions, current_line)
                         current_line = {}
@@ -201,4 +210,5 @@ if __name__ == "__main__":
     transactions = pdf_reader(file)
 
     for transaction in transactions:
-        print(f"{transaction['date'].date()} {transaction['type']} {transaction['quantity']} of {transaction['ticker']} ({transaction['stockname']}) at {transaction['price']}")
+        print(
+            f"{transaction['date'].date()} {transaction['type']} {transaction['quantity']} of {transaction['ticker']} ({transaction['stockname']}) at {transaction['price']}")

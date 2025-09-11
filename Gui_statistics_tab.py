@@ -3,6 +3,7 @@ import globals
 import stockdata
 import Db
 
+
 class StatisticsTab:
     def __init__(self, parent, register_update_all_tabs):
         """Initialisiert das Statistik-Tab mit allen Statistiken."""
@@ -92,4 +93,3 @@ class StatisticsTab:
             text=f"Average profit per Year: {(total_profit / total_days * 365):.2f} {globals.CURRENCY} ({avg_profit_per_year:.2f} %)")
         # Dividends Statistics
         # Not implemented yet
-

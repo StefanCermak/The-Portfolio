@@ -3,6 +3,7 @@ import time
 import json
 import hashlib
 from functools import wraps
+import tkinter as tk
 
 """
 This file is part of "The Portfolio".
@@ -140,3 +141,35 @@ def wrap_text_with_preferred_breaks(text, max_width):
     if line:
         lines.append(line)
     return '\n'.join(lines)
+
+class ToolTip:
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+        self.label = None
+
+    def showtip(self, text, x, y):
+        if not text:
+            return
+        if len(text) > 100:
+            text = wrap_text_with_preferred_breaks(text, 80)
+        if self.tipwindow:
+            tw = self.tipwindow
+            if self.label:
+                self.label.config(text=text)
+            tw.wm_geometry(f"+{x}+{y}")
+            return
+
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        self.label = label = tk.Label(tw, text=text, background="#ffffe0", relief="solid", borderwidth=1,
+                                      font=("tahoma", 12, "normal"))
+        label.pack(ipadx=1)
+
+    def hidetip(self):
+        tw = self.tipwindow
+        self.tipwindow = None
+        self.label = None
+        if tw:
+            tw.destroy()

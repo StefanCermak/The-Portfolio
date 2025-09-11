@@ -60,7 +60,7 @@ class SettingsTab:
                                                            command=self.import_account_statements)
         self.button_import_account_statements.grid(column=0, row=1, columnspan=3, padx=10, pady=10)
         if "account_statements_folder" in globals.USER_CONFIG and globals.USER_CONFIG[
-            "account_statements_folder"] != "":
+           "account_statements_folder"] != "":
             self.strvar_import_account_statements_folder_path.set(globals.USER_CONFIG["account_statements_folder"])
 
         self.frame_ai_configuration = ttk.LabelFrame(parent, text="AI Configuration")
@@ -89,7 +89,7 @@ class SettingsTab:
 
         """Aktualisiert die Inhalte des Settings-Tabs, z.B. Combobox-Werte und Felder."""
         # Beispielhafte Logik, bitte ggf. anpassen/ergänzen:
-        # Stockname <-> Ticker Comboboxen aktualisieren
+        # Stockname ↔ Ticker Comboboxen aktualisieren
         stocknames_with_tickers = self.db.get_stocknames_with_tickers()
         self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
         self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
@@ -121,26 +121,6 @@ class SettingsTab:
             self.setup_combobox_stockname_ticker_matching.set(ticker_symbol)
             self.setup_edit_stockname_new_symbol.delete(0, tk.END)
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
-
-            def browse_import_account_statements_folder(self):
-                """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""
-                folder_path = filedialog.askdirectory(
-                    initialdir=self.strvar_import_account_statements_folder_path.get())
-                if folder_path:
-                    folder_path = tools.path_smart_shorten(folder_path)
-                    self.strvar_import_account_statements_folder_path.set(folder_path)
-                    globals.USER_CONFIG["account_statements_folder"] = folder_path
-                    globals.save_user_config()
-
-                    def browse_import_account_statements_folder(self):
-                        """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""
-                        folder_path = filedialog.askdirectory(
-                            initialdir=self.strvar_import_account_statements_folder_path.get())
-                        if folder_path:
-                            folder_path = tools.path_smart_shorten(folder_path)
-                            self.strvar_import_account_statements_folder_path.set(folder_path)
-                            globals.USER_CONFIG["account_statements_folder"] = folder_path
-                            globals.save_user_config()
 
     def browse_import_account_statements_folder(self):
         """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""

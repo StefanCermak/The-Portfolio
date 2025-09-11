@@ -2,6 +2,7 @@ from tools import timed_cache, persistent_cache
 
 import yfinance as yf
 import yahooquery
+
 """
 This file is part of "The Portfolio".
 
@@ -23,7 +24,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
 @timed_cache(ttl_seconds=300)  # 5 Minuten Cache
-def get_currency_to_eur_rate(from_currency ="USD"):
+def get_currency_to_eur_rate(from_currency="USD"):
     """
     Holt den aktuellen Wechselkurs nach Euro von Yahoo Finance.
 
@@ -43,6 +44,7 @@ def get_currency_to_eur_rate(from_currency ="USD"):
         print(e)
 
         return None
+
 
 @timed_cache(ttl_seconds=300)  # 5 Minuten Cache
 def get_stock_price(ticker_symbol):
@@ -69,9 +71,10 @@ def get_stock_price(ticker_symbol):
             if to_eur is not None:
                 rate = to_eur
 
-        return (current_price, currency, rate)
-    except Exception as e:
-        return (None, None, None)
+        return current_price, currency, rate
+    except Exception as _:
+        return None, None, None
+
 
 @persistent_cache("get_ticker_symbols_from_name.json")
 def get_ticker_symbols_from_name(company_name):
@@ -91,8 +94,9 @@ def get_ticker_symbols_from_name(company_name):
             return symbols
         else:
             return None
-    except Exception as e:
+    except Exception as _:
         return None
+
 
 @persistent_cache("get_ticker_symbol_name_from_isin.json")
 def get_ticker_symbol_name_from_isin(isin):
@@ -112,16 +116,13 @@ def get_ticker_symbol_name_from_isin(isin):
                 if 'symbol' in quote and quote['symbol']:
                     return quote['symbol']
         return None
-    except Exception as e:
+    except Exception as _:
         return None
 
 
 if __name__ == "__main__":
     # Beispielaufrufe der Funktionen
-    print( "get_currency_to_eur_rate():", get_currency_to_eur_rate() )
-    print( "get_ticker_symbols_from_name('Apple Inc.'):", get_ticker_symbols_from_name("Apple Inc.") )
-    print( "get_ticker_symbol_name_from_isin('US0378331005'):", get_ticker_symbol_name_from_isin("US0378331005") )
-    print( "get_stock_price('AAPL'):", get_stock_price("AAPL") )
-
-
-
+    print("get_currency_to_eur_rate():", get_currency_to_eur_rate())
+    print("get_ticker_symbols_from_name('Apple Inc.'):", get_ticker_symbols_from_name("Apple Inc."))
+    print("get_ticker_symbol_name_from_isin('US0378331005'):", get_ticker_symbol_name_from_isin("US0378331005"))
+    print("get_stock_price('AAPL'):", get_stock_price("AAPL"))

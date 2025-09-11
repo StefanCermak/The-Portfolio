@@ -65,9 +65,9 @@ class ManualTradeTab:
     def update_tab_manual_trade(self):
         """Aktualisiert die Anzeige und Auswahlmöglichkeiten im Tab für manuelle Trades."""
         tickers_with_stockname = self.db.get_stocknames_with_tickers()
-        stocknames = sorted(tickers_with_stockname.values())
+        stock_names = sorted(tickers_with_stockname.values())
         tickers = sorted(tickers_with_stockname.keys())
-        self.manual_trade_combobox_stockname['values'] = stocknames
+        self.manual_trade_combobox_stockname['values'] = stock_names
         self.manual_trade_combobox_stockname.set('')
         self.manual_trade_combobox_ticker['values'] = tickers
         self.manual_trade_combobox_ticker.set('')
@@ -161,6 +161,3 @@ class ManualTradeTab:
                 self.manual_trade_label_quantity_own_sum.config(text="")
                 self.manual_trade_button_buy.config(state=tk.NORMAL)
                 self.manual_trade_button_sell.config(state=tk.DISABLED)
-
-
-

@@ -1,4 +1,5 @@
 from Gui import BrokerApp
+
 """
 This file is part of "The Portfolio".
 
@@ -17,6 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 """ Main entry point for the Broker application."""
+
 
 def main():
     broker_app = BrokerApp()

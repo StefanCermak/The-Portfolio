@@ -9,37 +9,6 @@ import stockdata
 import tools
 import daily_report
 
-class ToolTip:
-    def __init__(self, widget):
-        self.widget = widget
-        self.tipwindow = None
-        self.label = None
-
-    def showtip(self, text, x, y):
-        if not text:
-            return
-        if len(text) > 100:
-            text = tools.wrap_text_with_preferred_breaks(text, 80)
-        if self.tipwindow:
-            tw = self.tipwindow
-            if self.label:
-                self.label.config(text=text)
-            tw.wm_geometry(f"+{x}+{y}")
-            return
-
-        self.tipwindow = tw = tk.Toplevel(self.widget)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        self.label = label = tk.Label(tw, text=text, background="#ffffe0", relief="solid", borderwidth=1,
-                                      font=("tahoma", 12, "normal"))
-        label.pack(ipadx=1)
-
-    def hidetip(self):
-        tw = self.tipwindow
-        self.tipwindow = None
-        self.label = None
-        if tw:
-            tw.destroy()
 
 class ActiveTradesTab:
     def __init__(self, parent, update_all_tabs_callback, register_update_all_tabs):
@@ -86,7 +55,7 @@ class ActiveTradesTab:
         self.treeview.bind("<Motion>", self.on_treeview_motion)
         self.treeview.bind("<Leave>", lambda e: self.tooltip.hidetip())
 
-        self.tooltip = ToolTip(self.treeview)
+        self.tooltip = tools.ToolTip(self.treeview)
         self.update_tab_active_trades()
 
     def update_tab_active_trades(self):
@@ -101,18 +70,22 @@ class ActiveTradesTab:
                 stock_summary[trade]['invest'] += data['invest']
                 stock_summary[trade]['chance'] = data['chance'] if data['chance'] is not None else ''
                 stock_summary[trade]['risk'] = data['risk'] if data['risk'] is not None else ''
-                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data['chance_explanation'] is not None else ''
-                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data['risk_explanation'] is not None else ''
+                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data[
+                                                                                                    'chance_explanation'] is not None else ''
+                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data[
+                                                                                                'risk_explanation'] is not None else ''
         sort_key = self.treeview.master.sort
         if sort_key == "name":
             portfolio_stock_names = sorted(portfolio_stock_names)
         elif sort_key == "chance":
             portfolio_stock_names = sorted(portfolio_stock_names,
-                                           key=lambda name: stock_summary[name]['chance'] if stock_summary[name]['chance'] is not None else -1,
+                                           key=lambda name: stock_summary[name]['chance'] if stock_summary[name][
+                                                                                                 'chance'] is not None else -1,
                                            reverse=True)
         elif sort_key == "risk":
             portfolio_stock_names = sorted(portfolio_stock_names,
-                                           key=lambda name: stock_summary[name]['risk'] if stock_summary[name]['risk'] is not None else 101,
+                                           key=lambda name: stock_summary[name]['risk'] if stock_summary[name][
+                                                                                               'risk'] is not None else 101,
                                            reverse=True)
         elif sort_key == "quantity":
             portfolio_stock_names = sorted(portfolio_stock_names,
@@ -237,6 +210,7 @@ class ActiveTradesTab:
                     messagebox.showerror("AI Analysis Error", f"An error occurred during AI analysis:\n{str(err_msg)}")
                     self.button_ai_analysis.config(state=tk.NORMAL)
                     self.button_ai_analysis.config(text="🧠stock analysis")
+
                 err_msg = str(e)
                 self.treeview.after(0, _show_error_and_reset)
 
@@ -247,8 +221,9 @@ class ActiveTradesTab:
             self.button_ai_analysis.config(state=tk.NORMAL)
             self.button_ai_analysis.config(text="🧠stock analysis")
 
-        stocknames = self.db.get_current_stock_set()
-        ticker_symbols = [(ticker, name) for name in stocknames.keys() if (ticker := self.db.get_ticker_symbol(name)) is not None]
+        stock_names = self.db.get_current_stock_set()
+        ticker_symbols = [(ticker, name) for name in stock_names.keys() if
+                          (ticker := self.db.get_ticker_symbol(name)) is not None]
         threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 
     def on_stock_name_heading_click(self):
@@ -332,4 +307,3 @@ class ActiveTradesTab:
                     webbrowser.open(url)
                     return "break"
         return None
-

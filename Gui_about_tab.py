@@ -1,6 +1,7 @@
 import tkinter.ttk as ttk
 import globals
 
+
 class AboutTab:
     def __init__(self, parent):
         """Initialisiert das About-Tab mit App-Informationen."""
@@ -10,4 +11,3 @@ class AboutTab:
             justify="center"
         )
         self.about_label.pack(expand=True)
-

@@ -1,8 +1,6 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from tkcalendar import DateEntry
-
 import globals
 import Db
 
@@ -11,7 +9,7 @@ from Gui_settings_tab import SettingsTab
 from Gui_manual_trade_tab import ManualTradeTab
 from Gui_statistics_tab import StatisticsTab
 from Gui_trade_history_tab import TradeHistoryTab
-from Gui_active_trades_tab import ActiveTradesTab  # <--- NEU
+from Gui_active_trades_tab import ActiveTradesTab
 
 """
 This file is part of "The Portfolio".
@@ -31,6 +29,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 """ GUI for the stock broker application """
+
 
 class BrokerApp:
     def __init__(self):
