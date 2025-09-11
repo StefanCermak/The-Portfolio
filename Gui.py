@@ -103,6 +103,10 @@ class BrokerApp:
         self.setup_tab_about()
 
         self.active_trades_tooltip = ToolTip(self.treeview_active_trades)
+        
+        # Initialize auto-update for active trades (every 5 minutes)
+        self.auto_update_job = None
+        self.start_auto_update()
 
     def setup_tab_active_trades(self):
         """Initialisiert und konfiguriert das Tab für aktive Trades."""
@@ -929,8 +933,40 @@ class BrokerApp:
             self.setup_edit_stockname_new_symbol.delete(0, tk.END)
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
+    def start_auto_update(self):
+        """Startet das automatische Update für aktive Trades alle 5 Minuten."""
+        # Schedule the first update
+        self.schedule_auto_update()
+
+    def schedule_auto_update(self):
+        """Plant das nächste automatische Update ein."""
+        # Update every 5 minutes (300,000 milliseconds)
+        update_interval = 5 * 60 * 1000  # 5 minutes in milliseconds
+        self.auto_update_job = self.Window.after(update_interval, self.perform_auto_update)
+
+    def perform_auto_update(self):
+        """Führt das automatische Update der aktiven Trades durch."""
+        try:
+            # Update the active trades tab
+            self.update_tab_active_trades()
+        except Exception as e:
+            print(f"Auto-update failed: {e}")
+        finally:
+            # Schedule the next update
+            self.schedule_auto_update()
+
+    def stop_auto_update(self):
+        """Stoppt das automatische Update."""
+        if self.auto_update_job is not None:
+            self.Window.after_cancel(self.auto_update_job)
+            self.auto_update_job = None
+
     def run(self):
         """Startet die Haupt-Event-Loop der Anwendung."""
-        self.Window.mainloop()
-        globals.save_user_config()
+        try:
+            self.Window.mainloop()
+        finally:
+            # Clean up auto-update timer when application closes
+            self.stop_auto_update()
+            globals.save_user_config()
 
