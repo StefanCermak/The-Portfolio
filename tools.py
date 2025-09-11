@@ -23,23 +23,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """ Utility functions """
 
-def path_smart_shorten(path:str) -> str:
-    home_path = os.path.expanduser("~")
-    cwd = os.getcwd()
 
-    if path.startswith(home_path):
-        tilde_path = path.replace(home_path, "~", 1)
-    else:
-        tilde_path = path
-
-    try:
-        rel_path = os.path.relpath(path, cwd)
-    except ValueError:
-        rel_path = path  # Falls z. B. Laufwerkswechsel unter Windows
-
-    return rel_path if len(rel_path) < len(tilde_path) else tilde_path
-
-#decorators for caching
+# decorators for caching
 def timed_cache(ttl_seconds=300):
     """
     Decorator für zeitbasiertes Caching.
@@ -51,8 +36,10 @@ def timed_cache(ttl_seconds=300):
     Returns:
         Decorated function
     """
+
     def decorator(func):
         cache = {}
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             key = (args, tuple(sorted(kwargs.items())))
@@ -68,8 +55,11 @@ def timed_cache(ttl_seconds=300):
             result = func(*args, **kwargs)
             cache[key] = (result, now)
             return result
+
         return wrapper
+
     return decorator
+
 
 def persistent_cache(cache_file):
     """
@@ -95,7 +85,7 @@ def persistent_cache(cache_file):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Schlüssel generieren (hashbar, auch bei komplexen args)
+            # Schlüssel generieren (hash bar, auch bei komplexen args)
             key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=str)
             key = hashlib.sha256(key_raw.encode()).hexdigest()
 
@@ -106,9 +96,47 @@ def persistent_cache(cache_file):
             cache[key] = result
 
             # Cache speichern
-            with open(cache_file, "w") as f:
-                json.dump(cache, f)
+            with open(cache_file, "w") as cache_file_ref:
+                json.dump(cache, cache_file_ref)
 
             return result
+
         return wrapper
+
     return decorator
+
+
+def path_smart_shorten(path: str) -> str:
+    home_path = os.path.expanduser("~")
+    cwd = os.getcwd()
+
+    if path.startswith(home_path):
+        tilde_path = path.replace(home_path, "~", 1)
+    else:
+        tilde_path = path
+
+    try:
+        rel_path = os.path.relpath(path, cwd)
+    except ValueError:
+        rel_path = path  # Falls z. B. Laufwerkswechsel unter Windows
+
+    return rel_path if len(rel_path) < len(tilde_path) else tilde_path
+
+
+def wrap_text_with_preferred_breaks(text, max_width):
+    """Wraps the given text to the specified width."""
+    lines = []
+    line = ""
+    for word in text.split():
+        if word[-1] in [".", ",", ";", ":", "!", "?"]:
+            width = max_width * 0.75
+        else:
+            width = max_width
+        if len(line) + len(word) + 1 > width:
+            lines.append(line)
+            line = word
+        else:
+            line += " " + word
+    if line:
+        lines.append(line)
+    return '\n'.join(lines)

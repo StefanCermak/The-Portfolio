@@ -1,9 +1,9 @@
 import os
 import logging
 import datetime
+import re
 
-from pycparser.c_ast import Switch
-from pypdf import PdfReader
+import pdfplumber
 
 import stockdata
 import Db
@@ -103,7 +103,7 @@ def pdf_reader(file_path):
     Returns:
         list: A list of transaction dictionaries with keys 'date', 'type', 'ticker', 'quantity', 'price'.
     """
-    reader = PdfReader(file_path)
+    reader = pdfplumber.open(file_path)
     first_page = reader.pages[0].extract_text()
     if "KONTOÜBERSICHT" in first_page and "Trade Republic Bank GmbH" in first_page:
         return pdf_reader_traderepublic(reader)
@@ -111,102 +111,89 @@ def pdf_reader(file_path):
     return []
 
 
-def pdf_reader_traderepublic(reader :PdfReader):
-    def process_trade_line(trade_date, dir, linerest):
-        isin = linerest[0]
-        ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
-        quantity_index = linerest.index('quantity:') + 1
-        stockname = ' '.join(linerest[1:quantity_index-1])
-        if stockname.endswith(','):
-            stockname = stockname[:-1]
-        quantity = float(linerest[quantity_index].replace(',', '.'))
-        price = float(linerest[quantity_index+1].replace(',', '.'))
-        return {'date': datetime.datetime.strptime(trade_date, "%Y-%m-%d"), 'type': dir, 'ticker': ticker_symbol, 'stockname': stockname, 'quantity': quantity, 'price': price}
-
-    def process_savings_line(trade_date, linerest):
-        isin = linerest[0]
-        ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
-        quantity_index = linerest.index('quantity:') + 1
-        stockname = ' '.join(linerest[1:quantity_index-1])
-        if stockname.endswith(','):
-            stockname = stockname[:-1]
-        quantity = float(linerest[quantity_index].replace(',', '.'))
-        price = float(linerest[quantity_index+1].replace(',', '.'))
-        return {'date': datetime.datetime.strptime(trade_date, "%Y-%m-%d"), 'type': 'Buy', 'ticker': ticker_symbol, 'stockname': stockname, 'quantity': quantity, 'price': price}
+def pdf_reader_traderepublic(pdffile:pdfplumber):
+    split_description_regex = re.compile(r'(\w+) (.*), +quantity: +([\d.]+)')
+    def finish_line( transactions, current_line):
+        regex_result = split_description_regex.match(current_line['description'])
+        if regex_result:
+            stockname = regex_result.group(2)
+            isin = regex_result.group(1)
+            quantity = float(regex_result.group(3))
+            ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
+            if 'year' not in current_line.keys():
+                print("No year in line:", current_line)
+                return
+            date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
+            transactions.append({'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname, 'quantity': quantity, 'price': current_line['price']})
 
     transactions = []
-    for page in reader.pages:
+
+    for page in pdffile.pages:
         text = page.extract_text()
-        lines = text.split('\n')
-        current_day = None
-        current_month = None
-        trade_date = None
-        trade_multiline = []
-        trade_multidir = None
-        savings_multiline = []
-
-        for line in lines:
-            line_split = line.split()
-            match line_split:
-                case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
-                    current_day = int(day)
-                    current_month = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."].index(month) + 1
-                case [year, "Handel", dir, 'trade', *linerest ] if dir in ['Buy', 'Sell'] and current_day is not None and current_month is not None:
-                    year = int(year)
-                    trade_date = f"{year:04d}-{current_month:02d}-{current_day:02d}"
-                    if 'quantity:' in linerest:
-                        elements_after_quantity = len(linerest) - linerest.index('quantity:') - 1
-                        if elements_after_quantity > 4:
-                            transactions.append(process_trade_line(trade_date, dir, linerest))
-                            current_day = None
-                            current_month = None
-                        else:
-                            trade_multiline = linerest
-                            trade_multidir = dir
-                    else:
-                        trade_multiline = linerest
-                        trade_multidir = dir
-
-                case [*linerest] if len(trade_multiline) > 0:
-                    trade_multiline.extend(linerest)
-                    if 'quantity:' in trade_multiline:
-                        elements_after_quantity = len(trade_multiline) - trade_multiline.index('quantity:') - 1
-                        if elements_after_quantity > 4:
-                            transactions.append(process_trade_line(trade_date, trade_multidir, trade_multiline))
-                            trade_multiline = []
-                            trade_multidir = None
-                            current_day = None
-                            current_month = None
-
-                case [year, "Handel", "Savings", 'plan', "execution", *linerest ] if current_day is not None and current_month is not None:
-                    year = int(year)
-                    trade_date = f"{year:04d}-{current_month:02d}-{current_day:02d}"
-                    if 'quantity:' in linerest:
-                        elements_after_quantity = len(linerest) - linerest.index('quantity:') - 1
-                        if elements_after_quantity > 4:
-                            transactions.append(process_savings_line(trade_date, linerest))
-                            current_day = None
-                            current_month = None
-                        else:
-                            savings_multiline = linerest
-                    else:
-                        savings_multiline = linerest
-
-                case [*linerest] if len(savings_multiline) > 0:
-                    savings_multiline.extend(linerest)
-                    if 'quantity:' in savings_multiline:
-                        elements_after_quantity = len(savings_multiline) - savings_multiline.index('quantity:') - 1
-                        if elements_after_quantity > 4:
-                            transactions.append(process_savings_line(trade_date, savings_multiline))
-                            savings_multiline = []
-                            current_day = None
-                            current_month = None
-
-                case _:
-                    if trade_multiline:
-                        trade_multiline = False
-                        print("cancel multiline", line_split)
-
-
+        in_table = False
+        current_line = {}
+        for line in text.split('\n'):
+            if line.startswith("DATUM"):
+                in_table = True
+                continue
+            elif "Trade Republic Bank GmbH" in line or "BARMITTELÜBERSICHT" in line:
+                in_table = False
+                continue
+            if in_table:
+                print(line)
+                if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
+                    continue
+                match line.split():
+                    case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['day'] = int(day)
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."].index(month) + 1
+                    case [day, month, *description] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['day'] = int(day)
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."].index(month) + 1
+                        if description[0] in ['Buy', 'Sell', 'Savings']:
+                            current_line['type'] = description[0]
+                            if description[0] == 'Savings':
+                                current_line['type'] = 'Buy'
+                                description = description[4:]
+                            else:
+                                description = description[2:]
+                        current_line['description'] = ' '.join(description)
+                    case ['Handel', price, '€', _, '€']:
+                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
+                    case ['Handel', *tableline ]:
+                        if tableline[0] in ['Buy', 'Sell', 'Savings']:
+                            current_line['type'] = tableline[0]
+                            if 'Savings' == tableline[0]:
+                                current_line['type'] = 'Buy'
+                                tableline = tableline[4:]
+                            else:
+                                #delere first element
+                                tableline = tableline[2:]
+                            if "€" == tableline[-1] and "€" == tableline[-3]:
+                                current_line['price'] = float(tableline[-4].replace('.', '').replace(',', '.'))
+                                del tableline[-4:]
+                            current_line['description']=current_line.get('description','') + ' '.join(tableline)
+                    case [year, *linerest ] if year.isdigit() and int(year) > 1900:
+                        if 'description' in current_line.keys():
+                            current_line['description'] += ' '.join(linerest)
+                            current_line['year'] = int(year)
+                            finish_line(transactions, current_line)
+                        current_line = {}
+                    case [year] if year.isdigit() and int(year) > 1900:
+                        if 'description' in current_line.keys():
+                            current_line['year'] = int(year)
+                            finish_line(transactions, current_line)
+                        current_line = {}
+                    case _:
+                        pass
+            else:
+                print('+++'+line)
     return transactions
 
+
+if __name__ == "__main__":
+    file = r'account_statements/account_statement_last_6_month_8_2025.pdf'
+    transactions = pdf_reader(file)
+
+    for transaction in transactions:
+        print(f"{transaction['date'].date()} {transaction['type']} {transaction['quantity']} of {transaction['ticker']} ({transaction['stockname']}) at {transaction['price']}")

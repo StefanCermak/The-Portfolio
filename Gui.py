@@ -34,24 +34,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """ GUI for the stock broker application """
 
-def wrap_text_with_preferred_breaks(text, max_width):
-    """Wraps the given text to the specified width."""
-    lines = []
-    line = ""
-    for word in text.split():
-        if word[-1] in [".", ",", ";", ":", "!", "?"]:
-            width = max_width*0.75
-        else:
-            width = max_width
-        if len(line) + len(word) + 1 > width:
-            lines.append(line)
-            line = word
-        else:
-            line += " " + word
-    if line:
-        lines.append(line)
-    return '\n'.join(lines)
-
 
 class ToolTip:
     def __init__(self, widget):
@@ -65,7 +47,7 @@ class ToolTip:
         if not text:
             return
         if len(text) > 100:
-            text = wrap_text_with_preferred_breaks(text, 80)
+            text = tools.wrap_text_with_preferred_breaks(text, 80)
         if self.tipwindow:
             tw = self.tipwindow
             if self.label:
@@ -76,7 +58,8 @@ class ToolTip:
         self.tipwindow = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        self.label = label = tk.Label(tw, text=text, background="#ffffe0", relief="solid", borderwidth=1, font=("tahoma", "12", "normal"))
+        self.label = label = tk.Label(tw, text=text, background="#ffffe0", relief="solid", borderwidth=1,
+                                      font=("tahoma", 12, "normal"))
         label.pack(ipadx=1)
 
     def hidetip(self):
@@ -125,39 +108,38 @@ class BrokerApp:
         """Initialisiert und konfiguriert das Tab für aktive Trades."""
         self.active_trades_tab.sort = "name"
         self.active_trades_tab.columnconfigure(0, weight=1)
-        self.active_trades_tab.rowconfigure(0, weight=0) # Menubar
-        self.active_trades_tab.rowconfigure(1, weight=1) # treeview
+        self.active_trades_tab.rowconfigure(0, weight=0)  # Menubar
+        self.active_trades_tab.rowconfigure(1, weight=1)  # treeview
 
         self.active_trades_menu_frame = ttk.Frame(self.active_trades_tab)
         self.active_trades_menu_frame.grid(column=0, row=0, padx=0, pady=0, sticky="nsew")
         self.active_trades_button_ai_analysis = ttk.Button(self.active_trades_menu_frame, text="🧠stock analysis",
-                                                          command=self.update_ai_analysis)
+                                                           command=self.update_ai_analysis)
         self.active_trades_button_ai_analysis.grid(column=0, row=0, padx=0, pady=0)
-
 
         self.treeview_active_trades = ttk.Treeview(
             self.active_trades_tab,
-            columns=("Stock Name","Chance","Risk", "Quantity", "Invest", "Now", "Profit"),
+            columns=("Stock Name", "Chance", "Risk", "Quantity", "Invest", "Now", "Profit"),
             show='tree headings'
         )
         self.treeview_active_trades.heading("Stock Name", text="Stock Name", command=self.on_stock_name_heading_click)
         self.treeview_active_trades.heading("Chance", text="++", command=self.on_chance_heading_click)
         self.treeview_active_trades.heading("Risk", text="--", command=self.on_risk_heading_click)
-        self.treeview_active_trades.heading("Quantity", text="Quantity")
-        self.treeview_active_trades.heading("Invest", text="Invest")
-        self.treeview_active_trades.heading("Now", text="Now")
-        self.treeview_active_trades.heading("Profit", text="Profit")
+        self.treeview_active_trades.heading("Quantity", text="Quantity", command=self.on_quantity_heading_click)
+        self.treeview_active_trades.heading("Invest", text="Invest", command=self.on_invest_heading_click)
+        self.treeview_active_trades.heading("Now", text="Now", command=self.on_now_heading_click)
+        self.treeview_active_trades.heading("Profit", text="Profit", command=self.on_profit_heading_click)
         self.treeview_active_trades.column("#0", width=30, stretch=False)
-        #set Quantity column width to 12 characters, so that the quantity fits in the column, disable stretching
+        # set Quantity column width to 12 characters, so that the quantity fits in the column, disable stretching
         self.treeview_active_trades.column("Quantity", width=120, stretch=False)
-        #set risk and chance column width to 3 characters, so that the amount fits in the column, disable stretching
+        # set risk and chance column width to 3 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Chance", width=30, stretch=False)
         self.treeview_active_trades.column("Risk", width=30, stretch=False)
-        #set Invest column width to 15 characters, so that the amount fits in the column, disable stretching
+        # set Invest column width to 15 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Invest", width=150, stretch=False)
-        #set Now column width to 32 characters, so that the amount fits in the column, disable stretching
+        # set Now column width to 32 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Now", width=200, stretch=False)
-        #set Profit column width to 20 characters, so that the amount fits in the column, disable stretching
+        # set Profit column width to 20 characters, so that the amount fits in the column, disable stretching
         self.treeview_active_trades.column("Profit", width=200, stretch=False)
 
         self.treeview_active_trades.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
@@ -189,10 +171,10 @@ class BrokerApp:
         self.treeview_trade_history.heading("Profit %", text="Profit %")
         self.treeview_trade_history.heading("Profit %(Year", text="Profit %(Year)")
         self.treeview_trade_history.column("#0", width=30, stretch=False)
-        #set Start Date and End Date column width to 12 characters, so that the date fits in the column, disable stretching
+        # set Start Date and End Date column width to 12 characters, so that the date fits in the column, disable stretching
         self.treeview_trade_history.column("Start Date", width=100, stretch=False)
         self.treeview_trade_history.column("End Date", width=100, stretch=False)
-        #set Sum Buy and Sum Sell column width to 15 characters, so that the amount fits in the column, disable stretching
+        # set Sum Buy and Sum Sell column width to 15 characters, so that the amount fits in the column, disable stretching
         self.treeview_trade_history.column("Sum Buy", width=120, stretch=False)
         self.treeview_trade_history.column("Sum Sell", width=120, stretch=False)
         self.treeview_trade_history.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
@@ -247,7 +229,8 @@ class BrokerApp:
                                                    command=self.sell_trade)
         self.manual_trade_button_sell.grid(column=0, row=2, columnspan=2, padx=10, pady=10)
 
-        self.manual_trade_combobox_stockname.bind("<<ComboboxSelected>>", self.on_manual_trade_combobox_stockname_selected)
+        self.manual_trade_combobox_stockname.bind("<<ComboboxSelected>>",
+                                                  self.on_manual_trade_combobox_stockname_selected)
         self.manual_trade_combobox_stockname.bind("<FocusOut>", self.on_manual_trade_combobox_stockname_selected)
         self.manual_trade_combobox_ticker.bind("<<ComboboxSelected>>", self.on_manual_trade_combobox_ticker_selected)
         self.manual_trade_combobox_ticker.bind("<FocusOut>", self.on_manual_trade_combobox_ticker_selected)
@@ -354,13 +337,14 @@ class BrokerApp:
         if "OPEN_AI_API_KEY" in globals.USER_CONFIG and globals.USER_CONFIG["OPEN_AI_API_KEY"] != "":
             self.entry_openai_api_key.insert(0, globals.USER_CONFIG["OPEN_AI_API_KEY"])
         self.button_strore_openai_api_key = ttk.Button(self.frame_ai_configuration, text="Store API Key",
-                                                      command=self.store_openai_api_key)
+                                                       command=self.store_openai_api_key)
         self.button_strore_openai_api_key.grid(column=2, row=0, padx=10, pady=10)
         self.label_openai_api_key_info = ttk.Label(self.frame_ai_configuration,
                                                    text="You can get an API key from https://platform.openai.com/account/api-keys")
         self.label_openai_api_key_info.grid(column=0, row=1, columnspan=2, padx=10, pady=10)
         self.button_openai_website = ttk.Button(self.frame_ai_configuration, text="Open OpenAI Website",
-                                               command=lambda: webbrowser.open("https://platform.openai.com/account/api-keys"))
+                                                command=lambda: webbrowser.open(
+                                                    "https://platform.openai.com/account/api-keys"))
         self.button_openai_website.grid(column=3, row=1, padx=10, pady=10)
 
         self.update_tab_settings()
@@ -392,14 +376,66 @@ class BrokerApp:
                 stock_summary[trade]['invest'] += data['invest']
                 stock_summary[trade]['chance'] = data['chance'] if data['chance'] is not None else ''
                 stock_summary[trade]['risk'] = data['risk'] if data['risk'] is not None else ''
-                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data['chance_explanation'] is not None else ''
-                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data['risk_explanation'] is not None else ''
-        if self.active_trades_tab.sort == "name":
+                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data[
+                                                                                                    'chance_explanation'] is not None else ''
+                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data[
+                                                                                                'risk_explanation'] is not None else ''
+        # --- Sortierung nach Spalte ---
+        sort_key = self.active_trades_tab.sort
+        if sort_key == "name":
             portfolio_stock_names = sorted(portfolio_stock_names)
-        elif self.active_trades_tab.sort == "chance":
-            portfolio_stock_names = sorted(portfolio_stock_names, key=lambda name: stock_summary[name]['chance'] if stock_summary[name]['chance'] is not None else -1, reverse=True)
-        elif self.active_trades_tab.sort == "risk":
-            portfolio_stock_names = sorted(portfolio_stock_names, key=lambda name: stock_summary[name]['risk'] if stock_summary[name]['risk'] is not None else 101, reverse=True)
+        elif sort_key == "chance":
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: stock_summary[name]['chance'] if stock_summary[name][
+                                                                                                 'chance'] is not None else -1,
+                                           reverse=True)
+        elif sort_key == "risk":
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: stock_summary[name]['risk'] if stock_summary[name][
+                                                                                               'risk'] is not None else 101,
+                                           reverse=True)
+        elif sort_key == "quantity":
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: stock_summary[name]['quantity'],
+                                           reverse=True)
+        elif sort_key == "invest":
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: stock_summary[name]['invest'],
+                                           reverse=True)
+        elif sort_key == "now":
+            # Berechne aktuellen Wert für jedes Stock
+            now_values = {}
+            for stockname in portfolio_stock_names:
+                current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
+                if current_price is not None and rate is not None:
+                    now_values[stockname] = stock_summary[stockname]['quantity'] * current_price * rate
+                elif current_price is not None:
+                    now_values[stockname] = stock_summary[stockname]['quantity'] * current_price
+                else:
+                    now_values[stockname] = 0
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: now_values[name],
+                                           reverse=True)
+        elif sort_key == "profit":
+            # Berechne Profit für jedes Stock
+            profit_values = {}
+            for stockname in portfolio_stock_names:
+                current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
+                invest = stock_summary[stockname]['invest']
+                if current_price is not None and rate is not None:
+                    now = stock_summary[stockname]['quantity'] * current_price * rate
+                    profit = now - invest
+                elif current_price is not None:
+                    now = stock_summary[stockname]['quantity'] * current_price
+                    profit = now - invest
+                else:
+                    profit = 0
+                profit_values[stockname] = profit
+            portfolio_stock_names = sorted(portfolio_stock_names,
+                                           key=lambda name: profit_values[name],
+                                           reverse=True)
+        # --- Ende Sortierung ---
+
         for stockname in portfolio_stock_names:
             current_price, currency, rate = stockdata.get_stock_price(self.db.get_ticker_symbol(stockname))
             if current_price is not None and rate is not None:
@@ -425,10 +461,12 @@ class BrokerApp:
                     tag = 'profit_negative'
 
             stock_summary[stockname]['id'] = self.treeview_active_trades.insert('',
-                                                                                tk.END,
+                                                                                "end",
                                                                                 values=(stockname,
-                                                                                        stock_summary[stockname]['chance'],
-                                                                                        stock_summary[stockname]['risk'],
+                                                                                        stock_summary[stockname][
+                                                                                            'chance'],
+                                                                                        stock_summary[stockname][
+                                                                                            'risk'],
                                                                                         f"{stock_summary[stockname]['quantity']:.4f}",
                                                                                         f"{stock_summary[stockname]['invest']:.2f} {globals.CURRENCY}",
                                                                                         current_value,
@@ -460,16 +498,16 @@ class BrokerApp:
                     elif earnings_eur < -0.01:
                         tag = 'profit_negative'
 
-                id = self.treeview_active_trades.insert(stock_summary[trade]['id'],
-                                                        tk.END,
-                                                        values=('📅' + data['date'].strftime(globals.DATE_FORMAT),
-                                                                "", "",
-                                                                f"{data['quantity']:.4f}",
-                                                                f"{data['invest']:.2f} {globals.CURRENCY}",
-                                                                current_value
-                                                                )
-                                                        )
-                self.treeview_active_trades.item(id, tags=(tag,))
+                my_id = self.treeview_active_trades.insert(stock_summary[trade]['id'],
+                                                           "end",
+                                                           values=('📅' + data['date'].strftime(globals.DATE_FORMAT),
+                                                                   "", "",
+                                                                   f"{data['quantity']:.4f}",
+                                                                   f"{data['invest']:.2f} {globals.CURRENCY}",
+                                                                   current_value
+                                                                   )
+                                                           )
+                self.treeview_active_trades.item(my_id, tags=(tag,))
 
     def update_tab_trade_history(self):
         """Aktualisiert die Anzeige der Trade-Historie."""
@@ -479,7 +517,7 @@ class BrokerApp:
         portfolio_stock_names = sorted(trades.keys())
         for stockname in portfolio_stock_names:
             stock_id = self.treeview_trade_history.insert('',
-                                                          tk.END,
+                                                          "end",
                                                           values=(stockname, '', '', '', '')
                                                           )
             data_array = trades[stockname]
@@ -491,17 +529,17 @@ class BrokerApp:
                 days_held = (data['end_date'] - data['start_date']).days
                 # tages prozensatz = (1 + gesamtprozentsatz)^(1/anzahltage) - 1
                 profit_percent_per_day = ((1 + profit_percent / 100) ** (
-                            1 / days_held) - 1) * 100 if days_held > 0 else 0.0
+                        1 / days_held) - 1) * 100 if days_held > 0 else 0.0
                 # Jahres prozensatz = (1 + tagesprozentsatz)^365 - 1
                 profit_percent_per_year = ((
-                                                       1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
+                                                   1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
                 tag = 'neutral'
                 if profit_eur > 0.01:
                     tag = 'profit_positive'
                 elif profit_eur < -0.01:
                     tag = 'profit_negative'
                 line = self.treeview_trade_history.insert(stock_id,
-                                                          tk.END,
+                                                          "end",
                                                           values=(
                                                               '',
                                                               data['start_date'].strftime(globals.DATE_FORMAT),
@@ -576,7 +614,7 @@ class BrokerApp:
                 total_days += (data['end_date'] - data['start_date']).days
         profit_percent = (total_profit / total_invest * 100) if total_invest != 0 else 0.0
         avg_profit_per_year = ((1 + (total_profit / total_invest)) ** (
-                    365 / total_days) - 1) * 100 if total_days > 0 else 0.0
+                365 / total_days) - 1) * 100 if total_days > 0 else 0.0
         if total_days == 0:
             avg_profit_per_year = 0.0
             total_days = 1  # avoid division by zero
@@ -663,11 +701,11 @@ class BrokerApp:
     def update_ai_analysis(self):
         """Führt eine KI-Analyse für die aktuellen Aktien durch und speichert das Ergebnis."""
 
-        def run_ai_analysis_thread(ticker_symbols):
+        def run_ai_analysis_thread(thread_ticker_symbols):
             try:
                 self.active_trades_button_ai_analysis.config(state=tk.DISABLED)
                 self.active_trades_button_ai_analysis.config(text="🧠💭💭💭💭")
-                ai_report = daily_report.daily_report(ticker_symbols)
+                ai_report = daily_report.daily_report(thread_ticker_symbols)
                 self.Window.after(0, lambda: handle_ai_report(ai_report))
 
             except Exception as e:
@@ -679,7 +717,6 @@ class BrokerApp:
                 err_msg = str(e)
                 self.Window.after(0, _show_error_and_reset)
 
-
         def handle_ai_report(ai_report):
             if ai_report:
                 self.db.add_new_analysis(ai_report)
@@ -688,7 +725,8 @@ class BrokerApp:
             self.active_trades_button_ai_analysis.config(text="🧠stock analysis")
 
         stocknames = self.db.get_current_stock_set()
-        ticker_symbols = [(ticker, name) for name in stocknames.keys() if (ticker := self.db.get_ticker_symbol(name)) is not None]
+        ticker_symbols = [(ticker, name) for name in stocknames.keys() if
+                          (ticker := self.db.get_ticker_symbol(name)) is not None]
         threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 
     def on_stock_name_heading_click(self):
@@ -704,6 +742,26 @@ class BrokerApp:
     def on_risk_heading_click(self):
         """Sortiert die aktiven Trades nach Risiko, wenn auf die Spaltenüberschrift geklickt wird."""
         self.active_trades_tab.sort = "risk"
+        self.update_tab_active_trades()
+
+    def on_quantity_heading_click(self):
+        """Sortiert die aktiven Trades nach Menge, wenn auf die Spaltenüberschrift geklickt wird."""
+        self.active_trades_tab.sort = "quantity"
+        self.update_tab_active_trades()
+
+    def on_invest_heading_click(self):
+        """Sortiert die aktiven Trades nach Investition, wenn auf die Spaltenüberschrift geklickt wird."""
+        self.active_trades_tab.sort = "invest"
+        self.update_tab_active_trades()
+
+    def on_now_heading_click(self):
+        """Sortiert die aktiven Trades nach aktuellem Wert, wenn auf die Spaltenüberschrift geklickt wird."""
+        self.active_trades_tab.sort = "now"
+        self.update_tab_active_trades()
+
+    def on_profit_heading_click(self):
+        """Sortiert die aktiven Trades nach Gewinn, wenn auf die Spaltenüberschrift geklickt wird."""
+        self.active_trades_tab.sort = "profit"
         self.update_tab_active_trades()
 
     def on_active_trades_motion(self, event):
@@ -749,9 +807,9 @@ class BrokerApp:
                 return
         self.active_trades_tooltip.hidetip()
 
-    def on_active_trades_treeview_click(self, event):
+    def on_active_trades_treeview_click(self, _):
         """Öffnet die Yahoo Finance Seite für das ausgewählte Wertpapier bei Doppelklick."""
-        #get ticker symbol from selected row
+        # get ticker symbol from selected row
         selected_item = self.treeview_active_trades.selection()
         if selected_item:
             item = self.treeview_active_trades.item(selected_item)
@@ -763,10 +821,11 @@ class BrokerApp:
                     url = f"https://finance.yahoo.com/quote/{ticker_symbol}/"
                     webbrowser.open(url)
                     return "break"
+        return None
 
-    def on_history_trades_treeview_click(self, event):
+    def on_history_trades_treeview_click(self, _):
         """Öffnet die Yahoo Finance Seite für das ausgewählte Wertpapier in der Historie bei Doppelklick."""
-        #get ticker symbol from selected row
+        # get ticker symbol from selected row
         selected_item = self.treeview_trade_history.selection()
         if selected_item:
             item = self.treeview_trade_history.item(selected_item)
@@ -779,14 +838,14 @@ class BrokerApp:
                     webbrowser.open(url)
                     return "break"
 
-    def on_manual_trade_combobox_stockname_selected(self, event):
+    def on_manual_trade_combobox_stockname_selected(self, _):
         """Aktualisiert die Ticker-Auswahl und Buttons, wenn ein Aktienname ausgewählt wird."""
         stockname = self.manual_trade_combobox_stockname.get()
         ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
         if ticker_symbols is None:
             self.manual_trade_combobox_ticker['values'] = []
             self.manual_trade_combobox_ticker.set('')
-            #disable the buy and sell buttons
+            # disable the buy and sell buttons
             self.manual_trade_button_buy.config(state=tk.DISABLED)
             self.manual_trade_button_sell.config(state=tk.DISABLED)
         else:
@@ -798,12 +857,12 @@ class BrokerApp:
                     quantity = self.db.get_quantity_of_stock(stockname)
                     if quantity and quantity > 0:
                         self.manual_trade_label_quantity_own_sum.config(text=f"{quantity:.4f}")
-                        #enable the buy and sell buttons
+                        # enable the buy and sell buttons
                         self.manual_trade_button_buy.config(state=tk.NORMAL)
                         self.manual_trade_button_sell.config(state=tk.NORMAL)
                     else:
                         self.manual_trade_label_quantity_own_sum.config(text="")
-                        #enable only the buy button
+                        # enable only the buy button
                         self.manual_trade_button_buy.config(state=tk.NORMAL)
                         self.manual_trade_button_sell.config(state=tk.DISABLED)
                 else:
@@ -812,31 +871,31 @@ class BrokerApp:
                     self.manual_trade_button_buy.config(state=tk.NORMAL)
                     self.manual_trade_button_sell.config(state=tk.DISABLED)
 
-    def on_manual_trade_combobox_ticker_selected(self, event):
+    def on_manual_trade_combobox_ticker_selected(self, _):
         """Aktualisiert die Anzeige und Buttons, wenn ein Ticker ausgewählt wird."""
         ticker_symbol = self.manual_trade_combobox_ticker.get()
         stockname = self.db.get_stockname(ticker_symbol)
         if stockname is not None:
             self.manual_trade_combobox_stockname.set(stockname)
-            #enable the buy and sell buttons
+            # enable the buy and sell buttons
             self.manual_trade_button_buy.config(state=tk.NORMAL)
             self.manual_trade_button_sell.config(state=tk.NORMAL)
             quantity = self.db.get_quantity_of_stock(stockname)
             if quantity and quantity > 0:
                 self.manual_trade_label_quantity_own_sum.config(text=f"{quantity:.4f}")
-                #enable the buy and sell buttons
+                # enable the buy and sell buttons
                 self.manual_trade_button_buy.config(state=tk.NORMAL)
                 self.manual_trade_button_sell.config(state=tk.NORMAL)
             else:
                 self.manual_trade_label_quantity_own_sum.config(text="")
-                #enable only the buy button
+                # enable only the buy button
                 self.manual_trade_button_buy.config(state=tk.NORMAL)
                 self.manual_trade_button_sell.config(state=tk.DISABLED)
         else:
             self.manual_trade_button_buy.config(state=tk.DISABLED)
             self.manual_trade_button_sell.config(state=tk.DISABLED)
 
-    def on_add_combobox_stockname_selected(self, event):
+    def on_add_combobox_stockname_selected(self, _):
         """Aktualisiert die Ticker-Auswahl im Hinzufügen-Dialog, wenn ein Aktienname ausgewählt wird."""
         stockname = self.add_combobox_stockname.get()
         ticker_symbols = stockdata.get_ticker_symbols_from_name(stockname)
@@ -852,7 +911,7 @@ class BrokerApp:
                 else:
                     self.add_combobox_ticker.set(ticker_symbols[0])
 
-    def on_setup_combobox_stockname_ticker_matching_selected(self, event):
+    def on_setup_combobox_stockname_ticker_matching_selected(self, _):
         """Aktualisiert die Anzeige, wenn ein Ticker im Matching-Tab ausgewählt wird."""
         ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
         stockname = self.db.get_stockname(ticker_symbol)
@@ -861,7 +920,7 @@ class BrokerApp:
             self.setup_edit_stockname_new_symbol.delete(0, tk.END)
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
-    def on_setup_combobox_stockname_symbol_matching_selected(self, event):
+    def on_setup_combobox_stockname_symbol_matching_selected(self, _):
         """Aktualisiert die Anzeige, wenn ein Aktienname im Matching-Tab ausgewählt wird."""
         stockname = self.setup_combobox_stockname_symbol_matching.get()
         ticker_symbol = self.db.get_ticker_symbol(stockname)
@@ -874,3 +933,4 @@ class BrokerApp:
         """Startet die Haupt-Event-Loop der Anwendung."""
         self.Window.mainloop()
         globals.save_user_config()
+
