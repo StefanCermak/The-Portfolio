@@ -15,9 +15,9 @@ import tools
 import import_account_statements
 import daily_report
 
-# NEU: Importiere AboutTab
 from Gui_about_tab import AboutTab
 from Gui_settings_tab import SettingsTab
+from Gui_manual_trade_tab import ManualTradeTab
 
 """
 This file is part of "The Portfolio".
@@ -103,8 +103,7 @@ class BrokerApp:
         self.setup_tab_active_trades()
         self.setup_tab_trade_history()
         self.setup_tab_statistics()
-        self.setup_tab_manual_trade()
-
+        ManualTradeTab(self.manual_trade_tab, self.update_all_tabs, self.register_update_all_tabs)
         SettingsTab(self.settings_tab, self.update_all_tabs, self.register_update_all_tabs)
         AboutTab(self.about_tab)
 
@@ -195,56 +194,6 @@ class BrokerApp:
         self.treeview_trade_history.bind("<Double-Button-1>", self.on_history_trades_treeview_click)
 
         self.update_tab_trade_history()
-
-    def setup_tab_manual_trade(self):
-        """Initialisiert und konfiguriert das Tab für manuelle Trades."""
-        self.tab_manual_frame_common = ttk.Frame(self.manual_trade_tab)
-        self.tab_manual_frame_common.grid(column=0, row=0, columnspan=2, padx=10, pady=10, sticky="nsew")
-        self.manual_trade_label_stockname = ttk.Label(self.tab_manual_frame_common, text="Stock Name:")
-        self.manual_trade_label_stockname.grid(column=0, row=0, padx=10, pady=10)
-        self.manual_trade_combobox_stockname = ttk.Combobox(self.tab_manual_frame_common,
-                                                            values=sorted(self.db.get_stock_set()))
-        self.manual_trade_combobox_stockname.grid(column=1, row=0, padx=10, pady=10)
-        self.manual_trade_label_ticker = ttk.Label(self.tab_manual_frame_common, text="Ticker:")
-        self.manual_trade_label_ticker.grid(column=4, row=0, padx=10, pady=10)
-        self.manual_trade_combobox_ticker = ttk.Combobox(self.tab_manual_frame_common, values=[])
-        self.manual_trade_combobox_ticker.grid(column=5, row=0, padx=10, pady=10)
-        self.manual_trade_entry_date = DateEntry(self.tab_manual_frame_common, width=12, background='darkblue',
-                                                 foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy',
-                                                 year=datetime.date.today().year, date=datetime.date.today())
-        self.manual_trade_entry_date.grid(column=6, row=0, padx=10, pady=10)
-        self.tab_manual_frame_buy = ttk.LabelFrame(self.manual_trade_tab, text="Buy Stock")
-        self.tab_manual_frame_buy.grid(column=0, row=1, padx=10, pady=10, sticky="nsew")
-        self.manual_trade_label_quantity_buy = ttk.Label(self.tab_manual_frame_buy, text="Quantity:")
-        self.manual_trade_label_quantity_buy.grid(column=0, row=0, padx=10, pady=10)
-        self.manual_trade_entry_quantity_buy = ttk.Entry(self.tab_manual_frame_buy)
-        self.manual_trade_entry_quantity_buy.grid(column=1, row=0, padx=10, pady=10)
-        self.manual_trade_label_invest_buy = ttk.Label(self.tab_manual_frame_buy, text="Invest:")
-        self.manual_trade_label_invest_buy.grid(column=0, row=1, padx=10, pady=10)
-        self.manual_trade_entry_invest_buy = ttk.Entry(self.tab_manual_frame_buy)
-        self.manual_trade_entry_invest_buy.grid(column=1, row=1, padx=10, pady=10)
-        self.manual_trade_button_buy = ttk.Button(self.tab_manual_frame_buy, text="Buy Stock", command=self.add_trade)
-        self.manual_trade_button_buy.grid(column=0, row=2, columnspan=2, padx=10, pady=10)
-        self.tab_manual_frame_sell = ttk.LabelFrame(self.manual_trade_tab, text="Sell Stock")
-        self.tab_manual_frame_sell.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")
-        self.manual_trade_label_quantity_own = ttk.Label(self.tab_manual_frame_sell, text="Quantity:")
-        self.manual_trade_label_quantity_own.grid(column=0, row=0, padx=10, pady=10)
-        self.manual_trade_label_quantity_own_sum = ttk.Label(self.tab_manual_frame_sell, text="t.b.d.")
-        self.manual_trade_label_quantity_own_sum.grid(column=1, row=0, padx=10, pady=10)
-        self.manual_trade_label_earnings_sell = ttk.Label(self.tab_manual_frame_sell, text="Earnings:")
-        self.manual_trade_label_earnings_sell.grid(column=0, row=1, padx=10, pady=10)
-        self.manual_trade_entry_earnings_sell = ttk.Entry(self.tab_manual_frame_sell)
-        self.manual_trade_entry_earnings_sell.grid(column=1, row=1, padx=10, pady=10)
-        self.manual_trade_button_sell = ttk.Button(self.tab_manual_frame_sell, text="Sell Stock",
-                                                   command=self.sell_trade)
-        self.manual_trade_button_sell.grid(column=0, row=2, columnspan=2, padx=10, pady=10)
-
-        self.manual_trade_combobox_stockname.bind("<<ComboboxSelected>>",
-                                                  self.on_manual_trade_combobox_stockname_selected)
-        self.manual_trade_combobox_stockname.bind("<FocusOut>", self.on_manual_trade_combobox_stockname_selected)
-        self.manual_trade_combobox_ticker.bind("<<ComboboxSelected>>", self.on_manual_trade_combobox_ticker_selected)
-        self.manual_trade_combobox_ticker.bind("<FocusOut>", self.on_manual_trade_combobox_ticker_selected)
-        self.update_tab_manual_trade()
 
     def setup_tab_statistics(self):
         """Initialisiert und konfiguriert das Tab für Statistiken."""
@@ -495,14 +444,6 @@ class BrokerApp:
                 tag = 'profit_negative'
             self.treeview_trade_history.item(stock_id, tags=(tag,))
 
-    def update_tab_manual_trade(self):
-        """Aktualisiert die Anzeige und Auswahlmöglichkeiten im Tab für manuelle Trades."""
-        stocknames = sorted(self.db.get_stock_set())
-        self.manual_trade_combobox_stockname['values'] = stocknames
-        self.manual_trade_combobox_stockname.set('')
-        self.manual_trade_combobox_ticker['values'] = []
-        self.manual_trade_combobox_ticker.set('')
-
     def update_tab_statistics(self):
         """Aktualisiert die Statistik-Anzeige für aktive und historische Trades."""
         # Active Trades Statistics
@@ -556,46 +497,6 @@ class BrokerApp:
             text=f"Average profit per Year: {(total_profit / total_days * 365):.2f} {globals.CURRENCY} ({avg_profit_per_year:.2f} %)")
         # Dividends Statistics
         # Not implemented yet
-
-    def add_trade(self):
-        """Fügt einen neuen Trade basierend auf den Benutzereingaben hinzu."""
-        stockname = self.manual_trade_combobox_stockname.get()
-        ticker_symbol = self.manual_trade_combobox_ticker.get()
-
-        quantity = float(self.manual_trade_entry_quantity_buy.get().replace(',', '.'))
-        price = float(self.manual_trade_entry_invest_buy.get().replace(',', '.'))
-        trade_date = self.manual_trade_entry_date.get_date()
-
-        print(stockname, ticker_symbol, quantity, price, trade_date)
-
-        self.db.add_stockname_ticker(stockname, ticker_symbol)
-        self.db.add_stock_trade(ticker_symbol, quantity, price, trade_date)
-
-        self.manual_trade_entry_quantity_buy.delete(0, tk.END)
-        self.manual_trade_entry_invest_buy.delete(0, tk.END)
-        self.manual_trade_entry_date.set_date(datetime.date.today())
-
-        self.update_all_tabs()
-
-    def sell_trade(self):
-        """Verkauft einen Trade basierend auf den Benutzereingaben."""
-        stockname = self.manual_trade_combobox_stockname.get()
-        ticker_symbol = self.manual_trade_combobox_ticker.get()
-
-        earnings = float(self.manual_trade_entry_earnings_sell.get().replace(',', '.'))
-        trade_date = self.manual_trade_entry_date.get_date()
-
-        self.db.add_stockname_ticker(stockname, ticker_symbol)
-        self.db.sell_stock(stockname, earnings, trade_date)
-
-        self.manual_trade_entry_earnings_sell.delete(0, tk.END)
-        self.manual_trade_entry_date.set_date(datetime.date.today())
-        self.manual_trade_label_quantity_own_sum.set("")
-        self.manual_trade_button_sell.config(state=tk.DISABLED)
-
-        self.update_all_tabs()
-
-
 
     def update_ai_analysis(self):
         """Führt eine KI-Analyse für die aktuellen Aktien durch und speichert das Ergebnis."""
