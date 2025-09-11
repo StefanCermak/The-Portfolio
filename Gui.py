@@ -1,10 +1,9 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
 from tkcalendar import DateEntry
 
-import datetime
 import webbrowser
 import threading
 
@@ -12,13 +11,13 @@ import globals
 import Db
 import stockdata
 import tools
-import import_account_statements
 import daily_report
 
 from Gui_about_tab import AboutTab
 from Gui_settings_tab import SettingsTab
 from Gui_manual_trade_tab import ManualTradeTab
 from Gui_statistics_tab import StatisticsTab
+from Gui_trade_history_tab import TradeHistoryTab
 
 """
 This file is part of "The Portfolio".
@@ -102,7 +101,7 @@ class BrokerApp:
         self.tab_control.pack(expand=1, fill='both')
 
         self.setup_tab_active_trades()
-        self.setup_tab_trade_history()
+        TradeHistoryTab(self.trade_history_tab, self.register_update_all_tabs)
         StatisticsTab(self.statistics_tab, self.register_update_all_tabs)
         ManualTradeTab(self.manual_trade_tab, self.update_all_tabs, self.register_update_all_tabs)
         SettingsTab(self.settings_tab, self.update_all_tabs, self.register_update_all_tabs)
@@ -162,40 +161,6 @@ class BrokerApp:
 
         self.update_tab_active_trades()
 
-    def setup_tab_trade_history(self):
-        """Initialisiert und konfiguriert das Tab für die Trade-Historie."""
-        self.trade_history_tab.columnconfigure(0, weight=1)
-        self.trade_history_tab.rowconfigure(0, weight=1)
-        self.treeview_trade_history = ttk.Treeview(
-            self.trade_history_tab,
-            columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell", "Profit", "Profit %",
-                     "Profit %(Year"),
-            show='tree headings'
-        )
-        self.treeview_trade_history.heading("Stock Name", text="Stock Name")
-        self.treeview_trade_history.heading("Start Date", text="Start Date")
-        self.treeview_trade_history.heading("End Date", text="End Date")
-        self.treeview_trade_history.heading("Sum Buy", text="Sum Buy")
-        self.treeview_trade_history.heading("Sum Sell", text="Sum Sell")
-        self.treeview_trade_history.heading("Profit", text="Profit")
-        self.treeview_trade_history.heading("Profit %", text="Profit %")
-        self.treeview_trade_history.heading("Profit %(Year", text="Profit %(Year)")
-        self.treeview_trade_history.column("#0", width=30, stretch=False)
-        # set Start Date and End Date column width to 12 characters, so that the date fits in the column, disable stretching
-        self.treeview_trade_history.column("Start Date", width=100, stretch=False)
-        self.treeview_trade_history.column("End Date", width=100, stretch=False)
-        # set Sum Buy and Sum Sell column width to 15 characters, so that the amount fits in the column, disable stretching
-        self.treeview_trade_history.column("Sum Buy", width=120, stretch=False)
-        self.treeview_trade_history.column("Sum Sell", width=120, stretch=False)
-        self.treeview_trade_history.grid(column=0, row=0, padx=10, pady=10, sticky="nsew")
-        self.treeview_trade_history.tag_configure('profit_positive', foreground='green')
-        self.treeview_trade_history.tag_configure('profit_negative', foreground='red')
-        self.treeview_trade_history.tag_configure('neutral', foreground='blue')
-
-        self.treeview_trade_history.bind("<Double-Button-1>", self.on_history_trades_treeview_click)
-
-        self.update_tab_trade_history()
-
     def register_update_all_tabs(self, func):
         """Registriert eine Funktion, die aufgerufen wird, wenn alle Tabs aktualisiert werden sollen."""
         self.registered_update_functions.append(func)
@@ -203,8 +168,6 @@ class BrokerApp:
     def update_all_tabs(self):
         """Aktualisiert alle Tabs der Anwendung."""
         self.update_tab_active_trades()
-        self.update_tab_trade_history()
-        self.update_tab_manual_trade()
         for update_function in self.registered_update_functions:
             update_function()
 
@@ -353,57 +316,6 @@ class BrokerApp:
                                                                    )
                                                            )
                 self.treeview_active_trades.item(my_id, tags=(tag,))
-
-    def update_tab_trade_history(self):
-        """Aktualisiert die Anzeige der Trade-Historie."""
-        trades = self.db.get_history_stock_set()
-        for item in self.treeview_trade_history.get_children():
-            self.treeview_trade_history.delete(item)
-        portfolio_stock_names = sorted(trades.keys())
-        for stockname in portfolio_stock_names:
-            stock_id = self.treeview_trade_history.insert('',
-                                                          "end",
-                                                          values=(stockname, '', '', '', '')
-                                                          )
-            data_array = trades[stockname]
-            sorted_data_array = sorted(data_array, key=lambda d: d['end_date'], reverse=True)
-            sum_profit = 0.0
-            for data in sorted_data_array:
-                profit_eur = data['sum_sell'] - data['sum_buy']
-                profit_percent = (profit_eur / data['sum_buy'] * 100) if data['sum_buy'] != 0 else 0.0
-                days_held = (data['end_date'] - data['start_date']).days
-                # tages prozensatz = (1 + gesamtprozentsatz)^(1/anzahltage) - 1
-                profit_percent_per_day = ((1 + profit_percent / 100) ** (
-                        1 / days_held) - 1) * 100 if days_held > 0 else 0.0
-                # Jahres prozensatz = (1 + tagesprozentsatz)^365 - 1
-                profit_percent_per_year = ((
-                                                   1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
-                tag = 'neutral'
-                if profit_eur > 0.01:
-                    tag = 'profit_positive'
-                elif profit_eur < -0.01:
-                    tag = 'profit_negative'
-                line = self.treeview_trade_history.insert(stock_id,
-                                                          "end",
-                                                          values=(
-                                                              '',
-                                                              data['start_date'].strftime(globals.DATE_FORMAT),
-                                                              data['end_date'].strftime(globals.DATE_FORMAT),
-                                                              f"{data['sum_buy']:.2f} {globals.CURRENCY}",
-                                                              f"{data['sum_sell']:.2f} {globals.CURRENCY}",
-                                                              f"{profit_eur:.2f} {globals.CURRENCY}",
-                                                              f"{profit_percent:.2f} %",
-                                                              f"{profit_percent_per_year:.2f} %"
-                                                          )
-                                                          )
-                self.treeview_trade_history.item(line, tags=(tag,))
-                sum_profit += profit_eur
-            tag = 'neutral'
-            if sum_profit > 0.01:
-                tag = 'profit_positive'
-            elif sum_profit < -0.01:
-                tag = 'profit_negative'
-            self.treeview_trade_history.item(stock_id, tags=(tag,))
 
     def update_ai_analysis(self):
         """Führt eine KI-Analyse für die aktuellen Aktien durch und speichert das Ergebnis."""
