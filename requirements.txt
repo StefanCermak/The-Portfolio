@@ -1,0 +1,8 @@
+yfinance
+yahooquery
+tkcalendar
+requests
+pdfplumber
+openai
+ddgs
+feedparser
