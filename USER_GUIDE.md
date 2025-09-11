@@ -137,6 +137,10 @@ Information about the application version and developer.
    - See current value of each stock position
    - View profit/loss for each holding
    - Check the "Profit" column (green=gain, red=loss)
+   - Click column headers to sort by different metrics
+   - Click on the stock name to open its Yahoo Finance page
+   - Hover over the "++" and "--" columns for opportunity/risk indicators
+   - Expand the tree view to see details about each detailed stock purchase
 2. **Check "Summary" tab for overall statistics**:
    - Total amount invested
    - Current portfolio value
@@ -190,6 +194,10 @@ The application automatically updates stock prices every 5 minutes when running.
 - ⚪ Blue/Black = Neutral
 
 **Sorting**: Click on any column header to sort by that value.
+**Finance Info**: Click on the stock name to open its Yahoo Finance page.
+**Details View**: Click the arrow next to a stock to see individual purchase details.
+**AI Analysis**: If configured, click the "🧠stock analysis" button for insights.
+**Hover Tips**: Hover over "++" and "--" for explanations of opportunity and risk indicators.
 
 ### Trade History Features
 
@@ -235,10 +243,10 @@ Shows completed trades with:
 - Create readable names for ticker symbols
 - Organize your portfolio with personal labels
 
-**PDF Import** (Advanced Feature):
-- Import trades from broker account statements
-- Automatically parse PDF documents
-- Bulk import multiple transactions
+**Import Account Statesments** (Advanced Feature):
+- Bulk import multiple account statements at once from selected dictory
+- Supported formats:
+    - Currently only account statements in PDF format from Trade Republic are implemented
 
 **AI Analysis** (Optional):
 - Requires OpenAI API key
