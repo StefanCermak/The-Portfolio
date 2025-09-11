@@ -5,6 +5,9 @@ config.json
 .idea/
 .venv/
 *.log
+__pycache__/
+*.pyc
+*.pyo
 
 # Python cache files
 __pycache__/
