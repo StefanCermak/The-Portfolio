@@ -3,8 +3,16 @@ import globals
 
 
 class AboutTab:
-    def __init__(self, parent):
-        """Initialisiert das About-Tab mit App-Informationen."""
+    """
+    Tab for displaying application information such as name, version, author, and copyright.
+    """
+    def __init__(self, parent: object) -> None:
+        """
+        Initialize the AboutTab with application information.
+
+        Args:
+            parent: The parent tkinter widget.
+        """
         self.about_label = ttk.Label(
             parent,
             text=f"{globals.APP_NAME}\nVersion: {globals.APP_VERSION}\nAuthor: {globals.APP_AUTHOR}\n{globals.APP_COPYRIGHT}",

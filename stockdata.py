@@ -20,34 +20,43 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>. 
 """
 
-""" This module provides functions to fetch stock data, currency exchange rates,..."""
+""" 
+This module provides functions to fetch stock data, currency exchange rates, and ticker symbols
+using Yahoo Finance APIs and yahooquery. All functions are cached for performance.
+"""
 
 
-@timed_cache(ttl_seconds=300)  # 5 Minuten Cache
-def get_currency_to_eur_rate(from_currency="USD"):
+@timed_cache(ttl_seconds=300)  # 5 minutes cache
+def get_currency_to_eur_rate(from_currency: str = "USD") -> float | None:
     """
-    Holt den aktuellen Wechselkurs nach Euro von Yahoo Finance.
+    Fetch the current exchange rate from the given currency to Euro using Yahoo Finance.
+
+    Args:
+        from_currency (str): The currency code to convert from (default: "USD").
 
     Returns:
-        float: Der aktuelle Wechselkurs oder 0.0 bei Fehler.
+        float: The current exchange rate (1 unit of from_currency in EUR), or None on error.
+
+    Example:
+        >>> get_currency_to_eur_rate("USD")
+        0.92
     """
     try:
         fx = yahooquery.Ticker(f'EUR{from_currency}=X')
         rate = fx.price.get(f"EUR{from_currency}=X", {}).get("regularMarketPrice", None)
         if rate:
-            # EUR/USD -> 1 EUR = rate USD, also 1 USD = 1/rate EUR
+            # EUR/USD -> 1 EUR = rate USD, so 1 USD = 1/rate EUR
             return round(1 / rate, 4)
         else:
             return None
     except Exception as e:
-        print(f"oh oh, konnte {from_currency}/EUR Kurs nicht holen")
+        print(f"Error: Could not fetch {from_currency}/EUR exchange rate")
         print(e)
-
         return None
 
 
-@timed_cache(ttl_seconds=300)  # 5 Minuten Cache
-def get_stock_price(ticker_symbol):
+@timed_cache(ttl_seconds=300)  # 5 minutes cache
+def get_stock_price(ticker_symbol: str) -> tuple[float | None, str | None, float | None]:
     """
     Fetch the current stock price for the given ticker symbol using yfinance.
 
@@ -55,9 +64,15 @@ def get_stock_price(ticker_symbol):
         ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
 
     Returns:
-        float: The current stock price, or None if the ticker symbol is invalid or data is unavailable.
-    """
+        tuple: (current_price, currency, rate_to_eur)
+            current_price (float or None): The current stock price.
+            currency (str or None): The currency of the stock price.
+            rate_to_eur (float or None): Conversion rate to EUR if applicable, else None.
 
+    Example:
+        >>> get_stock_price("AAPL")
+        (189.98, 'USD', 0.92)
+    """
     try:
         ticker = yf.Ticker(ticker_symbol)
         stock_info = ticker.info
@@ -65,7 +80,7 @@ def get_stock_price(ticker_symbol):
         currency = stock_info.get('currency', None)
         rate = None
 
-        # USD in EUR umrechnen, falls nötig
+        # Convert to EUR if necessary
         if current_price is not None and currency != "EUR":
             to_eur = get_currency_to_eur_rate(currency)
             if to_eur is not None:
@@ -77,15 +92,19 @@ def get_stock_price(ticker_symbol):
 
 
 @persistent_cache("get_ticker_symbols_from_name.json")
-def get_ticker_symbols_from_name(company_name):
+def get_ticker_symbols_from_name(company_name: str) -> list[str] | None:
     """
-    Fetch the ticker symbol for a given company name using yahooquery.
+    Fetch possible ticker symbols for a given company name using yahooquery.
 
     Args:
         company_name (str): The full name of the company (e.g., 'Apple Inc.').
 
     Returns:
-        str: The ticker symbol if found, otherwise None.
+        list[str] or None: List of ticker symbols if found, otherwise None.
+
+    Example:
+        >>> get_ticker_symbols_from_name("Apple Inc.")
+        ['AAPL', 'APC.F', ...]
     """
     try:
         search = yahooquery.search(company_name)
@@ -99,7 +118,7 @@ def get_ticker_symbols_from_name(company_name):
 
 
 @persistent_cache("get_ticker_symbol_name_from_isin.json")
-def get_ticker_symbol_name_from_isin(isin):
+def get_ticker_symbol_name_from_isin(isin: str) -> str | None:
     """
     Fetch the ticker symbol for a given ISIN using yahooquery.
 
@@ -107,7 +126,11 @@ def get_ticker_symbol_name_from_isin(isin):
         isin (str): The ISIN (e.g., 'US0378331005' for Apple Inc.).
 
     Returns:
-        str: The ticker symbol if found, otherwise None.
+        str or None: The ticker symbol if found, otherwise None.
+
+    Example:
+        >>> get_ticker_symbol_name_from_isin("US0378331005")
+        'AAPL'
     """
     try:
         search = yahooquery.search(isin)
@@ -121,7 +144,9 @@ def get_ticker_symbol_name_from_isin(isin):
 
 
 if __name__ == "__main__":
-    # Beispielaufrufe der Funktionen
+    """
+    Example calls for demonstration and manual testing.
+    """
     print("get_currency_to_eur_rate():", get_currency_to_eur_rate())
     print("get_ticker_symbols_from_name('Apple Inc.'):", get_ticker_symbols_from_name("Apple Inc."))
     print("get_ticker_symbol_name_from_isin('US0378331005'):", get_ticker_symbol_name_from_isin("US0378331005"))

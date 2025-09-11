@@ -1,5 +1,6 @@
 import sqlite3
 import datetime
+from typing import Any, Dict, List, Set, Optional
 
 import globals
 """
@@ -23,12 +24,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
 class DbSqlite:
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initialize the SQLite database connection and ensure all tables exist.
+        """
         self.connection = sqlite3.connect(globals.SQLITE_FILE)
         self.cursor = self.connection.cursor()
         self.check_setup()
 
-    def check_setup(self):
+    def check_setup(self) -> None:
+        """
+        Create all necessary tables if they do not exist and enable foreign keys.
+        """
         self.cursor.execute('''PRAGMA foreign_keys = ON;''')
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS stock_name_ticker_names (
@@ -63,7 +70,13 @@ class DbSqlite:
                 FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
         self.connection.commit()
 
-    def get_stock_set(self):
+    def get_stock_set(self) -> Set[str]:
+        """
+        Get a set of all stock names with active trades.
+
+        Returns:
+            set: Set of stock names.
+        """
         self.cursor.execute('''SELECT DISTINCT s.stockname
                                FROM active_trades a
                                JOIN stock_name_ticker_names s ON a.ticker_symbol = s.ticker_symbol
@@ -71,8 +84,13 @@ class DbSqlite:
         rows = self.cursor.fetchall()
         return {row[0] for row in rows}
 
-    def get_current_stock_set(self):
-        # Returns a dictionary with stockname as key and a dictionary with current quantity and current invest as value
+    def get_current_stock_set(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get a dictionary of current active trades grouped by stock name.
+
+        Returns:
+            dict: Dictionary with stock name as key and a list of trade info dicts as value.
+        """
         self.cursor.execute('''
             SELECT s.stockname, a.quantity, a.invest, a.trade_date,
                    ai.chance, ai.chance_explanation, ai.risk, ai.risk_explanation
@@ -98,7 +116,13 @@ class DbSqlite:
 
         return dataset
 
-    def get_history_stock_set(self):
+    def get_history_stock_set(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get a dictionary of historical trades grouped by stock name.
+
+        Returns:
+            dict: Dictionary with stock name as key and a list of trade history dicts as value.
+        """
         self.cursor.execute('''SELECT s.stockname, h.start_date, h.end_date, h.sum_buy, h.sum_sell
                                FROM trade_history h
                                JOIN stock_name_ticker_names s ON h.ticker_symbol = s.ticker_symbol;''')
@@ -113,7 +137,16 @@ class DbSqlite:
                                    'sum_sell': row[4]})
         return dataset
 
-    def get_quantity_of_stock(self, stockname: str):
+    def get_quantity_of_stock(self, stockname: str) -> Optional[float]:
+        """
+        Get the total quantity of a given stock currently held.
+
+        Args:
+            stockname (str): The name of the stock.
+
+        Returns:
+            float or None: Total quantity or None if not found.
+        """
         self.cursor.execute('''
             SELECT SUM(a.quantity) as total_quantity
             FROM active_trades a
@@ -126,7 +159,16 @@ class DbSqlite:
         else:
             return None
 
-    def add_stock_trade(self, ticker_symbol: str, quantity: float, invest: float, trade_date: datetime.date):
+    def add_stock_trade(self, ticker_symbol: str, quantity: float, invest: float, trade_date: datetime.date) -> None:
+        """
+        Add a new stock trade to the active trades table if it does not already exist.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+            quantity (float): The quantity traded.
+            invest (float): The invested amount.
+            trade_date (datetime.date): The date of the trade.
+        """
         # query duplicate trades
         self.cursor.execute('''
             SELECT trade_id FROM active_trades
@@ -142,7 +184,15 @@ class DbSqlite:
         ''', (ticker_symbol, quantity, invest, trade_date.isoformat()))
         self.connection.commit()
 
-    def sell_stock(self, stockname: str, earnings: float, sell_date: datetime.date):
+    def sell_stock(self, stockname: str, earnings: float, sell_date: datetime.date) -> None:
+        """
+        Sell all active trades for a given stock, move them to history, and mark as inactive.
+
+        Args:
+            stockname (str): The name of the stock.
+            earnings (float): The total earnings from the sale.
+            sell_date (datetime.date): The date of the sale.
+        """
         # collect sum of invests, quantity for all active trades for this stock
         self.cursor.execute('''
             SELECT MIN(a.trade_date) as start_date,
@@ -169,7 +219,15 @@ class DbSqlite:
             ''', (ticker_symbol,))
         self.connection.commit()
 
-    def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: True):
+    def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: bool) -> None:
+        """
+        Add or update a stock name and ticker symbol mapping.
+
+        Args:
+            stockname (str): The name of the stock.
+            ticker_symbol (str): The ticker symbol.
+            replace_existing (bool): If True, replace existing mapping.
+        """
         command = 'INSERT OR REPLACE' if replace_existing else 'INSERT OR IGNORE'
         self.cursor.execute(f'''
             {command} INTO stock_name_ticker_names (ticker_symbol, stockname)
@@ -177,7 +235,16 @@ class DbSqlite:
         ''', (ticker_symbol, stockname))
         self.connection.commit()
 
-    def get_ticker_symbol(self, stockname: str):
+    def get_ticker_symbol(self, stockname: str) -> Optional[str]:
+        """
+        Get the ticker symbol for a given stock name.
+
+        Args:
+            stockname (str): The name of the stock.
+
+        Returns:
+            str or None: The ticker symbol or None if not found.
+        """
         self.cursor.execute('SELECT ticker_symbol FROM stock_name_ticker_names WHERE stockname = ?;', (stockname,))
         row = self.cursor.fetchone()
         if row:
@@ -185,7 +252,16 @@ class DbSqlite:
         else:
             return None
 
-    def get_stockname(self, ticker_symbol: str):
+    def get_stockname(self, ticker_symbol: str) -> Optional[str]:
+        """
+        Get the stock name for a given ticker symbol.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+
+        Returns:
+            str or None: The stock name or None if not found.
+        """
         self.cursor.execute('SELECT stockname FROM stock_name_ticker_names WHERE ticker_symbol = ?;', (ticker_symbol,))
         row = self.cursor.fetchone()
         if row:
@@ -193,12 +269,21 @@ class DbSqlite:
         else:
             return None
 
-    def get_stocknames_with_tickers(self):
+    def get_stocknames_with_tickers(self) -> Dict[str, str]:
+        """
+        Get a dictionary mapping ticker symbols to stock names.
+
+        Returns:
+            dict: Dictionary with ticker_symbol as key and stockname as value.
+        """
         self.cursor.execute('SELECT ticker_symbol, stockname FROM stock_name_ticker_names;')
         rows = self.cursor.fetchall()
         return {row[0]: row[1] for row in rows}
 
-    def find_closed_trades(self):
+    def find_closed_trades(self) -> None:
+        """
+        Find and close trade series where all shares have been sold, moving them to trade history.
+        """
         def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):
             self.cursor.execute('''update active_trades
                 set is_active_series = 0
@@ -251,7 +336,13 @@ class DbSqlite:
                     start_date = None
         self.connection.commit()
 
-    def add_new_analysis(self, analysis_dict):
+    def add_new_analysis(self, analysis_dict: Dict[str, Dict[str, Any]]) -> None:
+        """
+        Add or update AI stock analysis results for one or more ticker symbols.
+
+        Args:
+            analysis_dict (dict): Dictionary with ticker symbols as keys and analysis result dicts as values.
+        """
         print(analysis_dict)
         for ticker, analysis_result_dict in analysis_dict.items():
             self.cursor.execute('''
@@ -264,7 +355,10 @@ class DbSqlite:
                   analysis_result_dict['risk'][1]))
         self.connection.commit()
 
-    def close(self):
+    def close(self) -> None:
+        """
+        Close the database connection and cursor.
+        """
         self.cursor.close()
         self.connection.close()
         self.connection = None
