@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
+from typing import Callable, Any
 
 import globals
 import tools
@@ -7,8 +8,24 @@ import Db
 
 
 class SettingsTab:
-    def __init__(self, parent, update_all_tabs_callback, register_update_all_tabs):
-        """Initialisiert das Settings-Tab mit allen Konfigurationsoptionen."""
+    """
+    Tab for configuring application settings, including ticker-symbol mapping,
+    account statement import, and AI configuration.
+    """
+    def __init__(
+        self,
+        parent: Any,
+        update_all_tabs_callback: Callable[[], None],
+        register_update_all_tabs: Callable[[Callable[[], None]], None]
+    ) -> None:
+        """
+        Initialize the SettingsTab with all configuration options.
+
+        Args:
+            parent: The parent tkinter widget.
+            update_all_tabs_callback: Callback to update all tabs.
+            register_update_all_tabs: Function to register the update callback.
+        """
         self.db = Db.Db()
         self.update_all_tabs = update_all_tabs_callback
         register_update_all_tabs(self.update_tab_settings)
@@ -85,17 +102,20 @@ class SettingsTab:
         # Initiales Update
         self.update_tab_settings()
 
-    def update_tab_settings(self):
-
-        """Aktualisiert die Inhalte des Settings-Tabs, z.B. Combobox-Werte und Felder."""
+    def update_tab_settings(self) -> None:
+        """
+        Updates the contents of the Settings tab, e.g., combobox values and fields.
+        """
         # Beispielhafte Logik, bitte ggf. anpassen/ergänzen:
         # Stockname ↔ Ticker Comboboxen aktualisieren
         stocknames_with_tickers = self.db.get_stocknames_with_tickers()
         self.setup_combobox_stockname_symbol_matching['values'] = sorted(stocknames_with_tickers.values())
         self.setup_combobox_stockname_ticker_matching['values'] = sorted(stocknames_with_tickers.keys())
 
-    def store_long_name(self):
-        """Speichert einen neuen langen Namen für ein Ticker-Symbol."""
+    def store_long_name(self) -> None:
+        """
+        Stores a new long name for a ticker symbol.
+        """
         ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
         stockname = self.setup_edit_stockname_new_symbol.get()
         if ticker_symbol == "" or stockname == "":
@@ -104,8 +124,13 @@ class SettingsTab:
         self.update_all_tabs()
         self.setup_combobox_stockname_symbol_matching.set(stockname)
 
-    def on_setup_combobox_stockname_ticker_matching_selected(self, _):
-        """Aktualisiert die Anzeige, wenn ein Ticker im Matching-Tab ausgewählt wird."""
+    def on_setup_combobox_stockname_ticker_matching_selected(self, _: Any) -> None:
+        """
+        Updates the display when a ticker is selected in the matching tab.
+
+        Args:
+            _: The tkinter event object (unused).
+        """
         ticker_symbol = self.setup_combobox_stockname_ticker_matching.get()
         stockname = self.db.get_stockname(ticker_symbol)
         if stockname is not None:
@@ -113,8 +138,13 @@ class SettingsTab:
             self.setup_edit_stockname_new_symbol.delete(0, tk.END)
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
-    def on_setup_combobox_stockname_symbol_matching_selected(self, _):
-        """Aktualisiert die Anzeige, wenn ein Aktienname im Matching-Tab ausgewählt wird."""
+    def on_setup_combobox_stockname_symbol_matching_selected(self, _: Any) -> None:
+        """
+        Updates the display when a stock name is selected in the matching tab.
+
+        Args:
+            _: The tkinter event object (unused).
+        """
         stockname = self.setup_combobox_stockname_symbol_matching.get()
         ticker_symbol = self.db.get_ticker_symbol(stockname)
         if ticker_symbol is not None:
@@ -122,8 +152,10 @@ class SettingsTab:
             self.setup_edit_stockname_new_symbol.delete(0, tk.END)
             self.setup_edit_stockname_new_symbol.insert(0, stockname)
 
-    def browse_import_account_statements_folder(self):
-        """Öffnet einen Dialog zur Auswahl eines Ordners für Kontoauszüge."""
+    def browse_import_account_statements_folder(self) -> None:
+        """
+        Opens a dialog to select a folder for account statements.
+        """
         folder_path = filedialog.askdirectory(initialdir=self.strvar_import_account_statements_folder_path.get())
         if folder_path:
             folder_path = tools.path_smart_shorten(folder_path)
@@ -131,15 +163,19 @@ class SettingsTab:
             globals.USER_CONFIG["account_statements_folder"] = folder_path
             globals.save_user_config()
 
-    def import_account_statements(self):
-        """Importiert Kontoauszüge aus dem ausgewählten Ordner."""
+    def import_account_statements(self) -> None:
+        """
+        Imports account statements from the selected folder.
+        """
         folder_path = self.strvar_import_account_statements_folder_path.get()
         if folder_path:
             import_account_statements.from_folder(folder_path, self.db)
             self.update_all_tabs()
 
-    def store_openai_api_key(self):
-        """Speichert den OpenAI API Key in der Konfiguration."""
+    def store_openai_api_key(self) -> None:
+        """
+        Stores the OpenAI API key in the configuration.
+        """
         api_key = self.entry_openai_api_key.get().strip()
         globals.USER_CONFIG["OPEN_AI_API_KEY"] = api_key
         globals.save_user_config()
