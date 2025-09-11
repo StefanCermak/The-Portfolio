@@ -62,9 +62,9 @@ class TradeHistoryTab:
                 profit_percent_per_year = ((
                                                        1 + profit_percent_per_day / 100) ** 365 - 1) * 100 if days_held > 0 else 0.0
                 tag = 'neutral'
-                if profit_eur > 0.01:
+                if profit_eur > globals.PROFIT_THRESHOLD:
                     tag = 'profit_positive'
-                elif profit_eur < -0.01:
+                elif profit_eur < -globals.PROFIT_THRESHOLD:
                     tag = 'profit_negative'
                 line = self.treeview_trade_history.insert(stock_id,
                                                           "end",
@@ -82,9 +82,9 @@ class TradeHistoryTab:
                 self.treeview_trade_history.item(line, tags=(tag,))
                 sum_profit += profit_eur
             tag = 'neutral'
-            if sum_profit > 0.01:
+            if sum_profit > globals.PROFIT_THRESHOLD:
                 tag = 'profit_positive'
-            elif sum_profit < -0.01:
+            elif sum_profit < -globals.PROFIT_THRESHOLD:
                 tag = 'profit_negative'
             self.treeview_trade_history.item(stock_id, tags=(tag,))
 

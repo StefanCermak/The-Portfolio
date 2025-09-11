@@ -1,5 +1,6 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.messagebox as messagebox
 import webbrowser
 import threading
 
@@ -11,7 +12,19 @@ import daily_report
 
 
 class ActiveTradesTab:
+    """
+    Tab for displaying and managing active stock trades in the portfolio.
+    Provides sorting, AI analysis, and tooltips for additional information.
+    """
     def __init__(self, parent, update_all_tabs_callback, register_update_all_tabs):
+        """
+        Initialize the ActiveTradesTab.
+
+        Args:
+            parent: The parent tkinter widget.
+            update_all_tabs_callback: Callback to update all tabs.
+            register_update_all_tabs: Function to register the update callback.
+        """
         self.db = Db.Db()
         self.update_all_tabs = update_all_tabs_callback
         register_update_all_tabs(self.update_tab_active_trades)
@@ -59,6 +72,10 @@ class ActiveTradesTab:
         self.update_tab_active_trades()
 
     def update_tab_active_trades(self):
+        """
+        Refreshes the active trades table with current portfolio data.
+        Applies sorting and updates the treeview with latest values.
+        """
         trades = self.db.get_current_stock_set()
         for item in self.treeview.get_children():
             self.treeview.delete(item)
@@ -145,9 +162,9 @@ class ActiveTradesTab:
 
             tag = 'neutral'
             if earnings_eur is not None:
-                if earnings_eur > 0.01:
+                if earnings_eur > globals.PROFIT_THRESHOLD:
                     tag = 'profit_positive'
-                elif earnings_eur < 0.01:
+                elif earnings_eur < -globals.PROFIT_THRESHOLD:
                     tag = 'profit_negative'
 
             stock_summary[stockname]['id'] = self.treeview.insert('',
@@ -181,9 +198,9 @@ class ActiveTradesTab:
 
                 tag = 'neutral'
                 if earnings_eur is not None:
-                    if earnings_eur > 0.01:
+                    if earnings_eur > globals.PROFIT_THRESHOLD:
                         tag = 'profit_positive'
-                    elif earnings_eur < -0.01:
+                    elif earnings_eur < -globals.PROFIT_THRESHOLD:
                         tag = 'profit_negative'
 
                 my_id = self.treeview.insert(stock_summary[trade]['id'],
@@ -198,6 +215,10 @@ class ActiveTradesTab:
                 self.treeview.item(my_id, tags=(tag,))
 
     def update_ai_analysis(self):
+        """
+        Triggers AI-based stock analysis for all current portfolio stocks.
+        Updates the database and refreshes the table with new analysis results.
+        """
         def run_ai_analysis_thread(thread_ticker_symbols):
             try:
                 self.button_ai_analysis.config(state=tk.DISABLED)
@@ -206,7 +227,6 @@ class ActiveTradesTab:
                 self.treeview.after(0, lambda: handle_ai_report(ai_report))
             except Exception as e:
                 def _show_error_and_reset():
-                    import tkinter.messagebox as messagebox
                     messagebox.showerror("AI Analysis Error", f"An error occurred during AI analysis:\n{str(err_msg)}")
                     self.button_ai_analysis.config(state=tk.NORMAL)
                     self.button_ai_analysis.config(text="🧠stock analysis")
@@ -227,34 +247,62 @@ class ActiveTradesTab:
         threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 
     def on_stock_name_heading_click(self):
+        """
+        Sorts the table by stock name when the column header is clicked.
+        """
         self.treeview.master.sort = "name"
         self.update_tab_active_trades()
 
     def on_chance_heading_click(self):
+        """
+        Sorts the table by chance value when the column header is clicked.
+        """
         self.treeview.master.sort = "chance"
         self.update_tab_active_trades()
 
     def on_risk_heading_click(self):
+        """
+        Sorts the table by risk value when the column header is clicked.
+        """
         self.treeview.master.sort = "risk"
         self.update_tab_active_trades()
 
     def on_quantity_heading_click(self):
+        """
+        Sorts the table by quantity when the column header is clicked.
+        """
         self.treeview.master.sort = "quantity"
         self.update_tab_active_trades()
 
     def on_invest_heading_click(self):
+        """
+        Sorts the table by invested amount when the column header is clicked.
+        """
         self.treeview.master.sort = "invest"
         self.update_tab_active_trades()
 
     def on_now_heading_click(self):
+        """
+        Sorts the table by current value when the column header is clicked.
+        """
         self.treeview.master.sort = "now"
         self.update_tab_active_trades()
 
     def on_profit_heading_click(self):
+        """
+        Sorts the table by profit when the column header is clicked.
+        """
         self.treeview.master.sort = "profit"
         self.update_tab_active_trades()
 
     def on_treeview_motion(self, event):
+        """
+        Handles mouse movement over the treeview.
+        Shows tooltips for chance/risk explanations when hovering over relevant cells.
+
+        Args:
+            event: The tkinter event object.
+        """
         region = self.treeview.identify("region", event.x, event.y)
         if region != "cell":
             self.tooltip.hidetip()
@@ -296,6 +344,15 @@ class ActiveTradesTab:
         self.tooltip.hidetip()
 
     def on_treeview_click(self, _):
+        """
+        Handles double-clicks on the treeview.
+        Opens the Yahoo Finance page for the selected stock.
+
+        Args:
+            _: The tkinter event object (unused).
+        Returns:
+            "break" if a stock link was opened, otherwise None.
+        """
         selected_item = self.treeview.selection()
         if selected_item:
             item = self.treeview.item(selected_item)

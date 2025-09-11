@@ -37,7 +37,7 @@ DATE_FORMAT = "%Y-%m-%d"
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 TIMEZONE = "Europe/Vienna"
 CURRENCY = "EUR"
-
+PROFIT_THRESHOLD = 0.005
 
 def load_user_config():
     if os.path.exists(CONFIG_FILE):
