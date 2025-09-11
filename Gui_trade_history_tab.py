@@ -1,11 +1,23 @@
 import tkinter.ttk as ttk
+import webbrowser
+
 import globals
 import Db
 
 
 class TradeHistoryTab:
+    """
+    Tab for displaying and managing the trade history of stocks in the portfolio.
+    Provides an overview of completed trades, including profits and performance metrics.
+    """
     def __init__(self, parent, register_update_all_tabs):
-        """Initialisiert das Tab für die Trade-Historie."""
+        """
+        Initialize the TradeHistoryTab.
+
+        Args:
+            parent: The parent tkinter widget.
+            register_update_all_tabs: Function to register the update callback.
+        """
         self.db = Db.Db()
         register_update_all_tabs(self.update_tab_trade_history)
 
@@ -14,7 +26,7 @@ class TradeHistoryTab:
         self.treeview_trade_history = ttk.Treeview(
             parent,
             columns=("Stock Name", "Start Date", "End Date", "Sum Buy", "Sum Sell", "Profit", "Profit %",
-                     "Profit %(Year"),
+                     "Profit %(Year)"),
             show='tree headings'
         )
         self.treeview_trade_history.heading("Stock Name", text="Stock Name")
@@ -24,7 +36,7 @@ class TradeHistoryTab:
         self.treeview_trade_history.heading("Sum Sell", text="Sum Sell")
         self.treeview_trade_history.heading("Profit", text="Profit")
         self.treeview_trade_history.heading("Profit %", text="Profit %")
-        self.treeview_trade_history.heading("Profit %(Year", text="Profit %(Year)")
+        self.treeview_trade_history.heading("Profit %(Year)", text="Profit %(Year)")
         self.treeview_trade_history.column("#0", width=30, stretch=False)
         self.treeview_trade_history.column("Start Date", width=100, stretch=False)
         self.treeview_trade_history.column("End Date", width=100, stretch=False)
@@ -40,7 +52,10 @@ class TradeHistoryTab:
         self.update_tab_trade_history()
 
     def update_tab_trade_history(self):
-        """Aktualisiert die Anzeige der Trade-Historie."""
+        """
+        Refreshes the trade history table with completed trades from the database.
+        Calculates profit and performance metrics for each trade and updates the treeview.
+        """
         trades = self.db.get_history_stock_set()
         for item in self.treeview_trade_history.get_children():
             self.treeview_trade_history.delete(item)
@@ -89,7 +104,14 @@ class TradeHistoryTab:
             self.treeview_trade_history.item(stock_id, tags=(tag,))
 
     def on_history_trades_treeview_click(self, _):
-        """Öffnet die Yahoo Finance Seite für das ausgewählte Wertpapier in der Historie bei Doppelklick."""
+        """
+        Opens the Yahoo Finance page for the selected stock in the trade history on double-click.
+
+        Args:
+            _: The tkinter event object (unused).
+        Returns:
+            "break" if a stock link was opened, otherwise None.
+        """
         selected_item = self.treeview_trade_history.selection()
         if selected_item:
             item = self.treeview_trade_history.item(selected_item)
@@ -97,7 +119,6 @@ class TradeHistoryTab:
             if stockname != '' and not stockname.startswith('📅'):
                 ticker_symbol = self.db.get_ticker_symbol(stockname)
                 if ticker_symbol is not None:
-                    import webbrowser
                     url = f"https://finance.yahoo.com/quote/{ticker_symbol}/"
                     webbrowser.open(url)
                     return "break"
