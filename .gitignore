@@ -1,6 +1,12 @@
-/portfolio.db
-/account_statements/
-/*.json
-/.idea/
-/.venv/
+# Application specific files
+portfolio.db
+account_statements/
+config.json
+.idea/
+.venv/
 *.log
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
