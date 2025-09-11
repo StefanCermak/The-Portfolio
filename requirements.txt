@@ -1,5 +1,5 @@
 # The Portfolio - Python Dependencies
-#
+# 
 # Install all dependencies with: pip install -r requirements.txt
 
 # Financial data APIs

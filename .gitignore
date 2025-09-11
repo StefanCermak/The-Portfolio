@@ -2,10 +2,14 @@
 portfolio.db
 account_statements/
 config.json
+*.log
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
 .idea/
 .venv/
-*.log
-__pycache__/
 *.pyc
 *.pyo
 
