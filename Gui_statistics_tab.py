@@ -2,11 +2,22 @@ import tkinter.ttk as ttk
 import globals
 import stockdata
 import Db
+from typing import Callable, Any
 
 
 class StatisticsTab:
-    def __init__(self, parent, register_update_all_tabs):
-        """Initialisiert das Statistik-Tab mit allen Statistiken."""
+    """
+    Tab for displaying and managing portfolio statistics.
+    Shows statistics for active trades, trade history, and dividends.
+    """
+    def __init__(self, parent: Any, register_update_all_tabs: Callable[[Callable[[], None]], None]) -> None:
+        """
+        Initialize the StatisticsTab with all statistics sections.
+
+        Args:
+            parent: The parent tkinter widget.
+            register_update_all_tabs: Function to register the update callback.
+        """
         self.db = Db.Db()
         register_update_all_tabs(self.update_tab_statistics)
 
@@ -39,8 +50,12 @@ class StatisticsTab:
 
         self.update_tab_statistics()
 
-    def update_tab_statistics(self):
-        """Aktualisiert die Statistik-Anzeige für aktive und historische Trades."""
+    def update_tab_statistics(self) -> None:
+        """
+        Updates the statistics display for active and historical trades.
+        Calculates and sets values for number of stocks, total investment,
+        current value, profit, and average profit per year.
+        """
         # Active Trades Statistics
         current_stocks = self.db.get_current_stock_set()
         stocks = set()
