@@ -204,3 +204,45 @@ The application requires internet connectivity for:
 - RSS feed parsing for market news
 
 The app will function offline but with limited functionality (local database operations only).
+
+## Example: Complete Setup and Validation Workflow
+
+Here's a complete example of how to set up and validate the environment:
+
+```bash
+# 1. Install system dependencies
+sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+
+# 2. Install Python dependencies (NEVER CANCEL - takes ~60 seconds)
+pip3 install -r requirements.txt  # Set timeout to 120+ seconds
+
+# 3. Start virtual display for headless environments
+Xvfb :99 -screen 0 1024x768x24 &
+export DISPLAY=:99
+
+# 4. Validate core functionality
+python3 -c "
+import globals, Db, stockdata, tools
+print('✓ Core modules loaded')
+db = Db.Db()
+print('✓ Database initialized')
+db.close()
+"
+
+# 5. Test GUI application
+python3 -c "
+from Gui import BrokerApp
+app = BrokerApp()
+print('✓ GUI application ready')
+"
+
+# 6. Run full application (for testing)
+# python3 main.py  # Use this for actual usage
+```
+
+**Expected Results:**
+- System setup: ~30 seconds
+- Dependency installation: ~60 seconds (fresh) or ~1-2 seconds (cached)
+- Database creation: Automatic on first run
+- GUI initialization: ~1.3 seconds
+- Total fresh setup time: ~90-120 seconds
