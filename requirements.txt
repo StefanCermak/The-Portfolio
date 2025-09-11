@@ -1,8 +1,19 @@
-yfinance
-yahooquery
-tkcalendar
-requests
-pdfplumber
-openai
-ddgs
-feedparser
+# The Portfolio - Python Dependencies
+#
+# Install all dependencies with: pip install -r requirements.txt
+
+# Financial data APIs
+yfinance>=0.2.18
+yahooquery>=2.3.0
+
+# GUI components
+tkcalendar>=1.6.1
+
+# AI and external services
+openai>=1.0.0
+duckduckgo-search>=3.9.0
+
+# Data processing and web
+feedparser>=6.0.10
+requests>=2.31.0
+pdfplumber>=0.10.0

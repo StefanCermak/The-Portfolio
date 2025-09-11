@@ -132,6 +132,7 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
         text = page.extract_text()
         in_table = False
         current_line = {}
+        log=False
         for line in text.split('\n'):
             if line.startswith("DATUM"):
                 in_table = True
@@ -139,6 +140,11 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
             elif "Trade Republic Bank GmbH" in line or "BARMITTELÜBERSICHT" in line:
                 in_table = False
                 continue
+            if line.startswith("01 Sept.xxx"):
+                log = True
+            if line.startswith("02 Sept.xxx"):
+                log = False
+
             if in_table:
                 if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
                     continue
@@ -172,9 +178,9 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                                 current_line['price'] = float(tableline[-4].replace('.', '').replace(',', '.'))
                                 del tableline[-4:]
                             current_line['description']=current_line.get('description','') + ' '.join(tableline)
-                    case [year, *linerest ] if year.isdigit() and int(year) > 1900:
+                    case [year, *linerest] if year.isdigit() and int(year) > 1900:
                         if 'description' in current_line.keys():
-                            current_line['description'] += ' '.join(linerest)
+                            current_line['description'] += ' ' +' '.join(linerest)
                             current_line['year'] = int(year)
                             finish_line(transactions, current_line)
                         current_line = {}
@@ -185,6 +191,8 @@ def pdf_reader_traderepublic(pdffile:pdfplumber):
                         current_line = {}
                     case _:
                         pass
+                if log:
+                    print(line, current_line)
     return transactions
 
 
