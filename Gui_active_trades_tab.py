@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 import tkinter.messagebox as messagebox
 import webbrowser
 import threading
+from typing import Callable, Any
 
 import globals
 import Db
@@ -16,7 +17,12 @@ class ActiveTradesTab:
     Tab for displaying and managing active stock trades in the portfolio.
     Provides sorting, AI analysis, and tooltips for additional information.
     """
-    def __init__(self, parent, update_all_tabs_callback, register_update_all_tabs):
+    def __init__(
+        self,
+        parent: tk.Widget,
+        update_all_tabs_callback: Callable[[], None],
+        register_update_all_tabs: Callable[[Callable[[], None]], None]
+    ) -> None:
         """
         Initialize the ActiveTradesTab.
 
@@ -71,7 +77,7 @@ class ActiveTradesTab:
         self.tooltip = tools.ToolTip(self.treeview)
         self.update_tab_active_trades()
 
-    def update_tab_active_trades(self):
+    def update_tab_active_trades(self) -> None:
         """
         Refreshes the active trades table with current portfolio data.
         Applies sorting and updates the treeview with latest values.
@@ -214,7 +220,7 @@ class ActiveTradesTab:
                                              )
                 self.treeview.item(my_id, tags=(tag,))
 
-    def update_ai_analysis(self):
+    def update_ai_analysis(self) -> None:
         """
         Triggers AI-based stock analysis for all current portfolio stocks.
         Updates the database and refreshes the table with new analysis results.
@@ -246,56 +252,56 @@ class ActiveTradesTab:
                           (ticker := self.db.get_ticker_symbol(name)) is not None]
         threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 
-    def on_stock_name_heading_click(self):
+    def on_stock_name_heading_click(self) -> None:
         """
         Sorts the table by stock name when the column header is clicked.
         """
         self.treeview.master.sort = "name"
         self.update_tab_active_trades()
 
-    def on_chance_heading_click(self):
+    def on_chance_heading_click(self) -> None:
         """
         Sorts the table by chance value when the column header is clicked.
         """
         self.treeview.master.sort = "chance"
         self.update_tab_active_trades()
 
-    def on_risk_heading_click(self):
+    def on_risk_heading_click(self) -> None:
         """
         Sorts the table by risk value when the column header is clicked.
         """
         self.treeview.master.sort = "risk"
         self.update_tab_active_trades()
 
-    def on_quantity_heading_click(self):
+    def on_quantity_heading_click(self) -> None:
         """
         Sorts the table by quantity when the column header is clicked.
         """
         self.treeview.master.sort = "quantity"
         self.update_tab_active_trades()
 
-    def on_invest_heading_click(self):
+    def on_invest_heading_click(self) -> None:
         """
         Sorts the table by invested amount when the column header is clicked.
         """
         self.treeview.master.sort = "invest"
         self.update_tab_active_trades()
 
-    def on_now_heading_click(self):
+    def on_now_heading_click(self) -> None:
         """
         Sorts the table by current value when the column header is clicked.
         """
         self.treeview.master.sort = "now"
         self.update_tab_active_trades()
 
-    def on_profit_heading_click(self):
+    def on_profit_heading_click(self) -> None:
         """
         Sorts the table by profit when the column header is clicked.
         """
         self.treeview.master.sort = "profit"
         self.update_tab_active_trades()
 
-    def on_treeview_motion(self, event):
+    def on_treeview_motion(self, event: tk.Event) -> None:
         """
         Handles mouse movement over the treeview.
         Shows tooltips for chance/risk explanations when hovering over relevant cells.
@@ -343,7 +349,7 @@ class ActiveTradesTab:
                 return
         self.tooltip.hidetip()
 
-    def on_treeview_click(self, _):
+    def on_treeview_click(self, _: Any) -> str | None:
         """
         Handles double-clicks on the treeview.
         Opens the Yahoo Finance page for the selected stock.
