@@ -1,5 +1,5 @@
 from openai import OpenAI
-from ddgs import DDGS
+from duckduckgo_search import DDGS
 import feedparser
 import requests
 import logging
