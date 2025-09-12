@@ -93,10 +93,8 @@ class ActiveTradesTab:
                 stock_summary[trade]['invest'] += data['invest']
                 stock_summary[trade]['chance'] = data['chance'] if data['chance'] is not None else ''
                 stock_summary[trade]['risk'] = data['risk'] if data['risk'] is not None else ''
-                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data[
-                                                                                                    'chance_explanation'] is not None else ''
-                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data[
-                                                                                                'risk_explanation'] is not None else ''
+                stock_summary[trade]['chance_explanation'] = str(data['chance_explanation']) if data['chance_explanation'] is not None else ''
+                stock_summary[trade]['risk_explanation'] = str(data['risk_explanation']) if data['risk_explanation'] is not None else ''
         sort_key = self.treeview.master.sort
         if sort_key == "name":
             portfolio_stock_names = sorted(portfolio_stock_names)

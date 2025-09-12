@@ -11,7 +11,7 @@ tkcalendar>=1.6.1
 
 # AI and external services
 openai>=1.0.0
-duckduckgo-search>=3.9.0
+ddgs>=3.9.0
 
 # Data processing and web
 feedparser>=6.0.10

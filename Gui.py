@@ -32,6 +32,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
 class BrokerApp:
+    def __new__(cls, *args, **kwargs):
+        """Ensures only one instance of BrokerApp is only started once
+        This avoids multiple main windows due to pyinstall bug."""
+        if not hasattr(cls, '_instance'):
+            cls._instance = super(BrokerApp, cls).__new__(cls)
+            return cls._instance
+        else:
+            return None
+
     def __init__(self):
         """Initialisiert die Hauptanwendung und erstellt alle Tabs und Widgets."""
         self.db = Db.Db()
@@ -114,3 +123,4 @@ class BrokerApp:
             # Clean up auto-update timer when application closes
             self.stop_auto_update()
             globals.save_user_config()
+            self.Window.quit()

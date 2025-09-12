@@ -1,3 +1,6 @@
+import os
+import sys
+
 from Gui import BrokerApp
 
 """
@@ -21,8 +24,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
 def main():
+    if getattr(sys, 'frozen', False):
+        os.chdir(os.path.dirname(sys.executable))
+        #for _ in  range(3):
+        #    os.chdir(os.pardir)
+
     broker_app = BrokerApp()
-    broker_app.run()
+    if broker_app is not None:
+        broker_app.run()
+    sys.exit()
 
 
 if __name__ == '__main__':
