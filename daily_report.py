@@ -1,5 +1,5 @@
 from openai import OpenAI
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import feedparser
 import requests
 import logging
@@ -21,7 +21,6 @@ Rss_Feeds = [
     "https://www.wallstreet-online.de/rss/board-dax.xml",
     "https://www.deraktionaer.de/aktionaer-news.rss",
     "https://www.derstandard.at/rss/wirtschaft",
-    "https://www.derstandard.at/rss/wirtschaft",
     "https://www.diepresse.com/rss/",
     "https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml",
     "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
@@ -29,7 +28,7 @@ Rss_Feeds = [
     ]
 
 
-def get_rss_result(tickers, count_per_ticker=10):
+def get_rss_result(tickers, count_per_ticker=25):
     keywords = []
     for (ticker, name) in tickers:
         if ' ' in name:
@@ -105,6 +104,14 @@ def stock_analyst(stock_pile, stock_news):
         stocks_and_info += f"        - {ticker}: Current Price: {info['current_price']} {info['currency']}"
         if info['rate'] is not None:
             stocks_and_info += f" (Exchange Rate to EUR: {info['rate']})"
+        if info.get('regularMarketChangePercent') is not None:
+            stocks_and_info += f", Change Percent 24h: {info['regularMarketChangePercent']:.2f}%"
+        if info.get('marketCap') is not None:
+            stocks_and_info += f", Market Cap: {info['marketCap']}"
+        if info.get('fiftyTwoWeekHigh') is not None:
+            stocks_and_info += f", 52W High: {info['fiftyTwoWeekHigh']}"
+        if info.get('fiftyTwoWeekLow') is not None:
+            stocks_and_info += f", 52W Low: {info['fiftyTwoWeekLow']}"
         stocks_and_info += "\n"
 
     news_section = "\n"
@@ -155,7 +162,7 @@ def stock_analyst(stock_pile, stock_news):
         n=1,
         stop=None,
     )
-    logging.info('AI RESPONSE:\n'+"\n    ".join(response.choices[0].message.content.splitlines()))
+    logging.info('AI RESPONSE:\n'+"\n    ".join(response.choices[0].message.content.splitlines()).strip())
     # generate a dictionary from the response
     # keys are the ticker symbols
     # values are a dictionary with keys 'chance' and 'risk'
@@ -214,10 +221,10 @@ def daily_report(tickers):
     logging.basicConfig(filename='ai_analysis.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
     for (ticker,_) in tickers:
-        (current_price, currency, rate) = stockdata.get_stock_price(ticker)
+        (current_price, currency, rate, regularMarketChangePercent, marketCap, fiftyTwoWeekHigh, fiftyTwoWeekLow) = stockdata.get_stock_price(ticker, True)
         if current_price is None:
             continue
-        stock_pile[ticker] = {'current_price': current_price, 'currency': currency, 'rate': rate}
+        stock_pile[ticker] = {'current_price': current_price, 'currency': currency, 'rate': rate, 'regularMarketChangePercent': regularMarketChangePercent, 'marketCap': marketCap, 'fiftyTwoWeekHigh': fiftyTwoWeekHigh, 'fiftyTwoWeekLow': fiftyTwoWeekLow}
     stock_news = collect_news(tickers)
 
     analyst_dict = stock_analyst(stock_pile, stock_news)
@@ -229,7 +236,7 @@ if __name__ == "__main__":
     is_mydb = Db.Db()
     tickers = [(ticker, name) for ticker in stock if (name := is_mydb.get_stockname(ticker)) is not None]
     #print(tickers)
-    print(daily_report(tickers))
+    #print(daily_report(tickers))
     #print(get_rss_result(tickers))
     if False:
         news = collect_news(tickers)

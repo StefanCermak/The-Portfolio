@@ -56,28 +56,41 @@ def get_currency_to_eur_rate(from_currency: str = "USD") -> float | None:
 
 
 @timed_cache(ttl_seconds=300)  # 5 minutes cache
-def get_stock_price(ticker_symbol: str) -> tuple[float | None, str | None, float | None]:
+def get_stock_price(ticker_symbol: str, extended: bool = False) -> tuple:
     """
     Fetch the current stock price for the given ticker symbol using yfinance.
 
     Args:
         ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+        extended (bool, optional): If True, returns additional stock information
+            (regularMarketChangePercent, marketCap, fiftyTwoWeekHigh, fiftyTwoWeekLow).
+            If False (default), returns only price, currency, and EUR conversion rate.
 
     Returns:
-        tuple: (current_price, currency, rate_to_eur)
-            current_price (float or None): The current stock price.
-            currency (str or None): The currency of the stock price.
-            rate_to_eur (float or None): Conversion rate to EUR if applicable, else None.
+        tuple: If extended is False:
+            (current_price, currency, rate_to_eur)
+                current_price (float or None): The current stock price.
+                currency (str or None): The currency of the stock price.
+                rate_to_eur (float or None): Conversion rate to EUR if applicable, else None.
+            If extended is True:
+                (current_price, currency, rate_to_eur, regularMarketChangePercent, marketCap, fiftyTwoWeekHigh, fiftyTwoWeekLow)
+                All values may be None if unavailable.
 
     Example:
         >>> get_stock_price("AAPL")
         (189.98, 'USD', 0.92)
+        >>> get_stock_price("AAPL", extended=True)
+        (189.98, 'USD', 0.92, 0.012, 2980000000000, 199.62, 124.17)
     """
     try:
         ticker = yf.Ticker(ticker_symbol)
         stock_info = ticker.info
         current_price = stock_info.get('regularMarketPrice', None)
         currency = stock_info.get('currency', None)
+        regularMarketChangePercent = stock_info.get('regularMarketChangePercent', None)
+        marketCap = stock_info.get('marketCap', None)
+        fiftyTwoWeekHigh = stock_info.get('fiftyTwoWeekHigh', None)
+        fiftyTwoWeekLow = stock_info.get('fiftyTwoWeekLow', None)
         rate = None
 
         # Convert to EUR if necessary
@@ -85,10 +98,15 @@ def get_stock_price(ticker_symbol: str) -> tuple[float | None, str | None, float
             to_eur = get_currency_to_eur_rate(currency)
             if to_eur is not None:
                 rate = to_eur
-
-        return current_price, currency, rate
+        if extended:
+            return current_price, currency, rate, regularMarketChangePercent, marketCap, fiftyTwoWeekHigh, fiftyTwoWeekLow
+        else:
+            return current_price, currency, rate
     except Exception as _:
-        return None, None, None
+        if extended:
+            return None, None, None, None, None, None, None
+        else:
+            return None, None, None
 
 
 @persistent_cache("get_ticker_symbols_from_name.json")

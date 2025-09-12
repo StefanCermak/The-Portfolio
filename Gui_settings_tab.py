@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Callable, Any
 
+import import_account_statements
 import globals
 import tools
 import Db
