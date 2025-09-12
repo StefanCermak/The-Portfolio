@@ -17,3 +17,6 @@ ddgs>=3.9.0
 feedparser>=6.0.10
 requests>=2.31.0
 pdfplumber>=0.10.0
+
+# Plotting and visualization
+matplotlib>=3.7.0

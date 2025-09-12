@@ -68,6 +68,10 @@ class DbSqlite:
                 risk_explanation TEXT,
                 PRIMARY KEY (ticker_symbol, analysis_date),
                 FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS ai_diversification_analysis(
+                analysis_date TEXT PRIMARY KEY,
+                analysis_text TEXT NOT NULL);
+        ''')
         self.connection.commit()
 
     def get_stock_set(self) -> Set[str]:
@@ -354,6 +358,38 @@ class DbSqlite:
                   analysis_result_dict['risk'][0] if analysis_result_dict['risk'][0] is not None else -1,
                   analysis_result_dict['risk'][1]))
         self.connection.commit()
+
+    def add_diversification_analysis(self, analysis_text: str) -> None:
+        """
+        Add or update the AI diversification analysis for today.
+
+        Args:
+            analysis_text (str): The diversification analysis text.
+        """
+        self.cursor.execute('''
+            INSERT OR REPLACE INTO ai_diversification_analysis (analysis_date, analysis_text)
+            VALUES (?, ?);
+        ''', (datetime.date.today().isoformat(), analysis_text))
+        self.connection.commit()
+
+    def get_diversification_analysis(self) -> Optional[str]:
+        """
+        Get the latest AI diversification analysis text.
+
+        Returns:
+            str or None: The diversification analysis text or None if not found.
+        """
+        self.cursor.execute('''
+            SELECT analysis_date, analysis_text
+            FROM ai_diversification_analysis
+            ORDER BY analysis_date DESC
+            LIMIT 1;
+        ''')
+        row = self.cursor.fetchone()
+        if row:
+            return row[0], row[1]
+        else:
+            return None
 
     def close(self) -> None:
         """

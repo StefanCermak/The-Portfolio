@@ -108,6 +108,32 @@ def get_stock_price(ticker_symbol: str, extended: bool = False) -> tuple:
         else:
             return None, None, None
 
+@persistent_cache("get_industry_and_sector.json")
+def get_industry_and_sector(ticker_symbol: str) -> tuple[str | None, str | None]:
+    """
+    Fetch the industry and sector for a given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        tuple: (industry, sector)
+            industry (str or None): The industry of the company.
+            sector (str or None): The sector of the company.
+
+    Example:
+        >>> get_industry_and_sector("AAPL")
+        ('Consumer Electronics', 'Technology')
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        stock_info = ticker.info
+        print(stock_info)
+        industry = stock_info.get('industry', None)
+        sector = stock_info.get('sector', None)
+        return industry, sector
+    except Exception as _:
+        return None, None
 
 @persistent_cache("get_ticker_symbols_from_name.json")
 def get_ticker_symbols_from_name(company_name: str) -> list[str] | None:

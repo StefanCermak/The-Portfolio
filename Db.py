@@ -198,3 +198,27 @@ class Db:
             self.db_sqlite.add_new_analysis(analysis_dict)
         else:
             return None
+
+    def add_diversification_analysis(self, analysis_text: str) -> None:
+        """
+        Add or update the diversification analysis text.
+
+        Args:
+            analysis_text (str): The diversification analysis text.
+        """
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_diversification_analysis(analysis_text)
+        else:
+            return None
+
+    def get_diversification_analysis(self) -> Optional[str]:
+        """
+        Get the diversification analysis text.
+
+        Returns:
+            str or None: The diversification analysis text or None if not found.
+        """
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_diversification_analysis()
+        else:
+            return None
