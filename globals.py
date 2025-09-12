@@ -22,7 +22,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """ Global constants and configuration management for the portfolio application. """
 # app info
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "release-0.5.0"
 APP_NAME = "The Portfolio"
 APP_AUTHOR = "Stefan Cermak"
 APP_DESCRIPTION = "A simple portfolio management application."

@@ -2,6 +2,24 @@
 
 set -e
 
+# Ermittle letzten Git-Tag und prüfe, ob HEAD getaggt ist
+if git rev-parse --git-dir > /dev/null 2>&1; then
+  LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+  HEAD_TAG=$(git tag --points-at HEAD)
+  if [[ "$HEAD_TAG" == "$LAST_TAG" ]]; then
+    VERSION="$LAST_TAG"
+  else
+    VERSION="${LAST_TAG}+"
+  fi
+  echo "Detected version: $VERSION"
+  # Überschreibe APP_VERSION in globals.py
+  sed -i '' -E 's|^(APP_VERSION[[:space:]]*=[[:space:]]*).*$|\1"'"$VERSION"'"|' globals.py
+
+
+else
+  echo "Kein Git-Repository gefunden, verwende Standard-APP_VERSION."
+fi
+
 # 1. Systemabhängigkeiten installieren (macOS)
 echo "Installiere Systemabhängigkeiten (macOS)..."
 if ! command -v brew >/dev/null 2>&1; then
