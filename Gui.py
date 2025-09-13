@@ -1,5 +1,8 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+import sys
+import os
+import tkinter as tk
 
 import globals
 import Db
@@ -72,6 +75,17 @@ class BrokerApp:
         ManualTradeTab(self.manual_trade_tab, self.update_all_tabs, self.register_update_all_tabs)
         SettingsTab(self.settings_tab, self.update_all_tabs, self.register_update_all_tabs)
         AboutTab(self.about_tab)
+
+        # Set application icon, must be done after StatisticsTab (matplotlib)
+        if sys.platform.startswith('win'):
+            icon_path = os.path.join('graphics', 'The_Portfolio.ico')
+            if os.path.exists(icon_path):
+                self.Window.iconbitmap(icon_path)
+        else: # 'linux' and 'MacOs'
+            icon_path = os.path.join('graphics', 'The_Portfolio.png')
+            if os.path.exists(icon_path):
+                img = tk.PhotoImage(file=icon_path)
+                self.Window.iconphoto(True, img)
 
         # Initialize auto-update for active trades (every 5 minutes)
         self.auto_update_job = None
