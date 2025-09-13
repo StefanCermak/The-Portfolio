@@ -273,10 +273,12 @@ def diversification_report(analyst_dict):
         percentage = (value / total_industry_value) * 100 if total_industry_value > 0 else 0
         prompt += f" - {industry}: {value:.2f} EUR ({percentage:.2f}%)\n"
     prompt += f"""
-currently we have {now.strftime("%B %Y")}, the customer plans to invest for the next quarter, but does not wanna sell anything.
+currently we have {now.strftime("%B %Y")}, the customer plans to invest for the next quarter, 
+but does not wanna sell anything. Dont claim about this, just offer invests in new industries.
 Please provide a diversification analysis of the current industries, and suggest which industries
 could be increased for better diversification.
-Consider market trends, economic outlook, and potential risks associated with each industry.
+Consider market trends(also saisonal effects), economic outlook, and potential risks associated with each industry.
+for stocks not traded in EUR consider the exchange rate risk to EUR. depending on the currency and its volatility.
 Provide your analysis in German.
 Here are some actual news ticker headlines that might be relevant for the analysis:
 {get_rss_general_news(250)}

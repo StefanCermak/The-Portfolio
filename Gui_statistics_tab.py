@@ -3,6 +3,8 @@ import tkinter as tk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Callable, Any
+import re
+import webbrowser
 
 import globals
 import stockdata
@@ -84,11 +86,42 @@ class StatisticsTab:
             ai_text = "No diversification analysis available. Click the button above to generate a diversification plan using AI."
         else:
             ai_text = f"Last analysis from {date}:\n\n{ai_text}"
-        self.info_diversification.insert(tk.END, ai_text)
-                # disable editing
+        self.insert_diversification_text_with_links(ai_text)
+        # disable editing
         self.info_diversification.config(state=tk.DISABLED)
 
         self.update_tab_statistics()
+
+    def insert_diversification_text_with_links(self, text: str) -> None:
+        """
+        Inserts text into self.info_diversification, making ticker symbols in [TICKER] clickable.
+        Clicking a ticker opens its Yahoo Finance page in the browser.
+        """
+        self.info_diversification.config(state=tk.NORMAL)
+        self.info_diversification.delete("1.0", tk.END)
+        pattern = re.compile(r'\[([A-Z0-9\.\-]+)\]')
+        pos = 0
+        for match in pattern.finditer(text):
+            start, end = match.span()
+            ticker = match.group(1)
+            # Insert text before the ticker
+            self.info_diversification.insert(tk.END, text[pos:start])
+            tag_name = f"ticker_{ticker}_{start}"
+            self.info_diversification.insert(tk.END, f"[{ticker}]", tag_name)
+            self.info_diversification.tag_config(
+                tag_name,
+                foreground="blue",
+                underline=1,
+                font=("TkDefaultFont", 9, "underline")
+            )
+            def callback(event, ticker=ticker):
+                url = f"https://finance.yahoo.com/quote/{ticker}/"
+                webbrowser.open(url)
+            self.info_diversification.tag_bind(tag_name, "<Button-1>", callback)
+            pos = end
+        # Insert remaining text
+        self.info_diversification.insert(tk.END, text[pos:])
+        self.info_diversification.config(state=tk.DISABLED)
 
     def _get_sectors_and_industries_invest(self, shorten: bool = True) -> dict:
         """
@@ -287,13 +320,9 @@ class StatisticsTab:
 
         def handle_ai_text(ai_text):
             self.db.add_diversification_analysis(ai_text)
-            self.info_diversification.config(state=tk.NORMAL)
-            self.info_diversification.delete("1.0", tk.END)
-            self.info_diversification.insert(tk.END, ai_text)
-            self.info_diversification.config(state=tk.DISABLED)
+            self.insert_diversification_text_with_links(ai_text)
             self.button_call_ai_plan.config(state=tk.NORMAL)
             self.button_call_ai_plan.config(text="🧠Diversification Plan")
 
         sectors_and_industries = self._get_sectors_and_industries_invest(shorten=False)
         threading.Thread(target=run_diversification_thread, args=(sectors_and_industries,), daemon=True).start()
-
