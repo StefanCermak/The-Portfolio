@@ -389,7 +389,7 @@ class DbSqlite:
         if row:
             return row[0], row[1]
         else:
-            return None
+            return None , None
 
     def close(self) -> None:
         """

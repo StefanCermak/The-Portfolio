@@ -133,27 +133,48 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
 
     transactions = []
 
-    for page in pdffile.pages:
+    for pagen_nr,page in enumerate(pdffile.pages):
+
         text = page.extract_text()
         in_table = False
         current_line = {}
         log = False
         for line in text.split('\n'):
             if line.startswith("DATUM"):
+                print(f"Analyzing page {pagen_nr + 1}/{len(pdffile.pages)}")
                 in_table = True
                 continue
             elif "Trade Republic Bank GmbH" in line or "BARMITTELÜBERSICHT" in line:
                 in_table = False
                 continue
-            if line.startswith("01 Sept.xxx"):
-                log = True
-            if line.startswith("02 Sept.xxx"):
-                log = False
+            #if line.startswith("02 Sept."):
+            #    log = True
+            #if line.startswith("09 Sept."):
+            #    log = False
+            log= (pagen_nr+1) == -99
 
             if in_table:
                 if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
                     continue
+                if log:
+                    print("Processing line:", line)
                 match line.split():
+                    case [day] if day.isdigit() and 1 <= int(day) <= 31:
+                        current_line['day'] = int(day)
+                    case [Month, "Handel", price, "€", _, "€"] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
+                                                                                 "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
+                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
+                    case [Month, "Handel", dir, "trade", *description, price, '€', _, '€'] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
+                                                            "Sept.", "Okt.", "Nov.", "Dez."] and dir in ['Buy', 'Sell']:
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
+                        current_line['type'] = dir
+                        current_line['description'] = ' '.join(description)
+                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
+                        #finish_line(transactions, current_line)
+
                     case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
                                                    "Sept.", "Okt.", "Nov.", "Dez."]:
                         current_line['day'] = int(day)
@@ -193,20 +214,27 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
                             current_line['year'] = int(year)
                             finish_line(transactions, current_line)
                         current_line = {}
+                    case [dir, 'trade', *linerest] if dir in ['Buy', 'Sell']:
+                        current_line['type'] = dir
+                        current_line['description'] = ' '.join(linerest)
+                    case ['Savings', 'plan', 'execution', *linerest]:
+                        current_line['type'] = 'Buy'
+                        current_line['description'] = ' '.join(linerest)
                     case [year] if year.isdigit() and int(year) > 1900:
                         if 'description' in current_line.keys():
                             current_line['year'] = int(year)
                             finish_line(transactions, current_line)
                         current_line = {}
-                    case _:
-                        pass
+                    case [*linerest]:
+                        if 'description' in current_line.keys() and 'year' not in current_line.keys():
+                            current_line['description'] += ' ' + ' '.join(linerest)
                 if log:
                     print(line, current_line)
     return transactions
 
 
 if __name__ == "__main__":
-    file = r'account_statements/account_statement_last_6_month_8_2025.pdf'
+    file = r'account_statements/Kontoauszug.pdf'
     transactions = pdf_reader(file)
 
     for transaction in transactions:

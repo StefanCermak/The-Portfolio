@@ -286,7 +286,7 @@ Here are some actual news ticker headlines that might be relevant for the analys
 Give a formated concise analysis, no more than 300 words. 
 Ending with a summary of the top 3 industries to consider for increased investment,
 and a brief explanation for each choice.
-Each Industry suggestion should be attached 3 suggested Tickernames. The thicker shall be enclosed by [].
+Each Industry suggestion should be attached 3 suggested Tickernames. Each Tickername shall be enclosed by [].
 
 Do not ask for or offer follow up tasks, just provide the requested analysis.
 """
