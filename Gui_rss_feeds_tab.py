@@ -5,6 +5,7 @@ import webbrowser
 
 import RSS_Crawler
 import Db
+import tools
 
 
 class RssFeedsTab:
@@ -13,17 +14,22 @@ class RssFeedsTab:
         self.frame = ttk.Frame(self.parent)
         self.frame.pack(fill="both", expand=True)
         self.db = Db.Db()
-        self.treeview_id_link_dict = {}
+        self.treeview_id_additional_datas = {}
 
-        self.rss_treeview = ttk.Treeview(self.frame, columns=("Server", "Summary"), show='headings')
+        self.rss_treeview = ttk.Treeview(self.frame, columns=("Server", "Summary"), show='tree headings')
         self.rss_treeview.heading("Server", text="Server")
         self.rss_treeview.heading("Summary", text="Summary")
-        self.rss_treeview.column("Server", width=150)
+        self.rss_treeview.column("#0", width=30, stretch=False)
+        self.rss_treeview.column("Server", width=100)
         self.rss_treeview.column("Summary", width=525)
         self.rss_treeview.pack(fill="both", expand=True)
         self.rss_treeview.insert("", "end", values=("still fetching data", "", "--- please wait ---"))
         self.update_rss_feeds()
         self.rss_treeview.bind("<Double-Button-1>", self.on_treeview_click)
+        self.rss_treeview.bind("<Motion>", self.on_treeview_motion)
+        self.rss_treeview.bind("<Leave>", lambda e: self.tooltip.hidetip())
+
+        self.tooltip = tools.ToolTip(self.rss_treeview)
 
     def update_rss_feeds(self):
         def update_rss_feeds_thread(symbols):
@@ -39,10 +45,10 @@ class RssFeedsTab:
 
         def update_treeview(server_dict, symbols):
             self.rss_treeview.delete(*self.rss_treeview.get_children())
-            self.treeview_id_link_dict = {}
+            self.treeview_id_additional_datas = {}
             sorted_servers = sorted(server_dict.keys())
             for server in sorted_servers:
-                server_line_id = self.rss_treeview.insert("", "end", values=(server, f"-------------------------"))
+                server_line_id = self.rss_treeview.insert("", "end", values=(server, f"------------------------------------------------------------------------------------------------------------------------------------------------------"))
                 entries = server_dict[server]
                 for entry in entries:
                     tags = []
@@ -52,8 +58,12 @@ class RssFeedsTab:
                     # sort tags alphabetically, ignore case
                     tags.sort(key=lambda s: s.lower())
                     if tags:
-                        tree_id = self.rss_treeview.insert(server_line_id, "end", values=("️🏷" + "️, 🏷".join(tags), entry.title))
-                        self.treeview_id_link_dict[tree_id] = entry.link
+                        tree_id = self.rss_treeview.insert(server_line_id, "end", values=("️", entry.title))
+                        self.treeview_id_additional_datas[tree_id] = {'link': entry.link, 'hint': "️🏷" + "️, 🏷".join(tags)}
+            # expand all servers
+            for server in sorted_servers:
+                server_line_id = self.rss_treeview.get_children()[sorted_servers.index(server)]
+                self.rss_treeview.item(server_line_id, open=True)
 
         stock_names = self.db.get_current_stock_set()
         filter_symbols = []
@@ -79,6 +89,19 @@ class RssFeedsTab:
         item_id = self.rss_treeview.focus()
         if not item_id:
             return
-        if item_id in self.treeview_id_link_dict:
-            link = self.treeview_id_link_dict[item_id]
+        if item_id in self.treeview_id_additional_datas:
+            link = self.treeview_id_additional_datas[item_id]['link']
             webbrowser.open(link)
+
+    def on_treeview_motion(self, event):
+        item_id = self.rss_treeview.identify_row(event.y)
+        if not item_id:
+            self.tooltip.hidetip()
+            return
+        if item_id in self.treeview_id_additional_datas:
+            hint = self.treeview_id_additional_datas[item_id]['hint']
+            x = event.x_root + 20
+            y = event.y_root + 10
+            self.tooltip.showtip(hint, x, y)
+        else:
+            self.tooltip.hidetip()
