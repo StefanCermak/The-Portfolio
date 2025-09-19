@@ -110,6 +110,46 @@ def persistent_cache(cache_file: str):
     return decorator
 
 
+def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
+    """
+    Dekorator für persistenten, zeitbasierten Cache.
+    Speichert Ergebnisse in einer JSON-Datei und prüft die Gültigkeit per TTL.
+    """
+    def decorator(func):
+        # Cache laden
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r") as f:
+                    cache = json.load(f)
+            except json.JSONDecodeError:
+                cache = {}
+        else:
+            cache = {}
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=str)
+            key = hashlib.sha256(key_raw.encode()).hexdigest()
+            now = time.time()
+
+            # Prüfen, ob Cache gültig ist
+            if key in cache:
+                entry = cache[key]
+                if isinstance(entry, dict) and "timestamp" in entry and "result" in entry:
+                    if now - entry["timestamp"] < ttl_seconds:
+                        return entry["result"]
+
+            # Neu berechnen und speichern
+            result = func(*args, **kwargs)
+            cache[key] = {"result": result, "timestamp": now}
+            with open(cache_file, "w") as cache_file_ref:
+                json.dump(cache, cache_file_ref)
+            return result
+
+        return wrapper
+    return decorator
+
+
 def path_smart_shorten(path: str) -> str:
     """
     Shortens a file path for display purposes.
