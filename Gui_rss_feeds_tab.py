@@ -34,9 +34,8 @@ class RssFeedsTab:
     def update_rss_feeds(self):
         def update_rss_feeds_thread(symbols):
             crawler = RSS_Crawler.RssCrawler()
-            crawler.rss_filters = symbols
             server_dict = {}
-            for entry in crawler:
+            for entry in crawler.__iter__(symbols):
                 server = entry.server
                 if server not in server_dict:
                     server_dict[server] = []

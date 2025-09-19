@@ -125,6 +125,17 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
                 cache = {}
         else:
             cache = {}
+        # clean up old cache entries
+        now = time.time()
+        keys_to_delete = []
+        for key, entry in cache.items():
+            if isinstance(entry, dict) and "timestamp" in entry:
+                if now - entry["timestamp"] >= ttl_seconds:
+                    keys_to_delete.append(key)
+        for key in keys_to_delete:
+            del cache[key]
+        with open(cache_file, "w") as cache_file_ref:
+            json.dump(cache, cache_file_ref)
 
         @wraps(func)
         def wrapper(*args, **kwargs):

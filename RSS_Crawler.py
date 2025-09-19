@@ -79,41 +79,54 @@ class RssCrawler:
             rss_feeds = RSS_FEEDS_TICKERS
         self.rss_feeds = rss_feeds
         self.rss_entries: list[RssEntry] = []
-        self.rss_filters: list[str] = []
         self.crawl_rss_feeds()
 
     def crawl_rss_feeds(self):
         for rss_feed in self.rss_feeds:
             self.fetch_rss_feed(rss_feed)
 
-    def fetch_rss_feed(self, rss_url: str) -> None:
+    @staticmethod
+    @tools.persistent_timed_cache("fetch_rss_feed.json", ttl_seconds=3600*24)
+    def fetch_rss_feed_static(rss_url: str):
         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
         response = requests.get(rss_url, headers=headers)
         feed = feedparser.parse(response.content)
-        for feed_entry in feed.entries:
-            title = feed_entry.get('title', '')
-            summary = feed_entry.get('summary', '')
-            link = feed_entry.get('link', '')
-            new_feed_entry = RssEntry(title, link, summary)
+        feed_entries = []
+        for feed_enty in feed.entries:
+            data = {'link': feed_enty.get('link', ''),
+                    'title': feed_enty.get('title', ''),
+                    'summary': feed_enty.get('summary', '')}
+            feed_entries.append(data)
+        return feed_entries
+
+    def fetch_rss_feed(self, rss_url: str) -> None:
+        for feed_entry in self.fetch_rss_feed_static(rss_url):
+            new_feed_entry = RssEntry(feed_entry['title'], feed_entry['link'], feed_entry['summary'])
             self.rss_entries.append(new_feed_entry)
 
-    def __iter__(self):
+    def __iter__(self, rss_filters: list[str] = None):
+        """
+        Iteriert über die RSS-Einträge, optional gefiltert nach rss_filters.
+        """
+        if rss_filters is None:
+            rss_filters = []
         for entry in self.rss_entries:
-            if not self.rss_filters:
+            if not rss_filters:
                 yield entry
             else:
-                filter_collection = (entry.title + " " + \
-                                     entry.summary if entry.summary else "" + " " + \
-                                     entry.article if entry.article else ""
-                                     ).lower()
-                if any(f.lower() in filter_collection for f in self.rss_filters):
+                filter_collection = (
+                    (entry.title + " ") +
+                    (entry.summary if entry.summary else "") + " " +
+                    (entry.article if entry.article else "")
+                ).lower()
+                if any(f.lower() in filter_collection for f in rss_filters):
                     yield entry
 
 
 if __name__ == "__main__":
     crawler = RssCrawler()
-    crawler.rss_filters = ["AAPL", "Apple"]
-    for entry in crawler:
+    rss_filters = ["AAPL", "Apple"]
+    for entry in crawler.__iter__(rss_filters):
         print(entry.title)
         print(entry.link)
         if entry.article:
