@@ -9,7 +9,7 @@ import globals
 import Db
 import stockdata
 import tools
-import daily_report
+import ai_risk_and_chance_analysis
 
 
 class ActiveTradesTab:
@@ -227,7 +227,7 @@ class ActiveTradesTab:
             try:
                 self.button_ai_analysis.config(state=tk.DISABLED)
                 self.button_ai_analysis.config(text="🧠💭💭💭💭")
-                ai_report = daily_report.daily_report(thread_ticker_symbols)
+                ai_report = ai_risk_and_chance_analysis.get_Report(thread_ticker_symbols)
                 self.treeview.after(0, lambda: handle_ai_report(ai_report))
             except Exception as e:
                 def _show_error_and_reset():

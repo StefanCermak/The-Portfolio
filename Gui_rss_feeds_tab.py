@@ -35,7 +35,7 @@ class RssFeedsTab:
         def update_rss_feeds_thread(symbols):
             crawler = RSS_Crawler.RssCrawler()
             server_dict = {}
-            for entry in crawler.__iter__(symbols):
+            for entry in crawler.filtered_entries(symbols):
                 server = entry.server
                 if server not in server_dict:
                     server_dict[server] = []
@@ -67,13 +67,13 @@ class RssFeedsTab:
         stock_names = self.db.get_current_stock_set()
         filter_symbols = []
         for name in stock_names.keys():
+            ticker = self.db.get_ticker_symbol(name)
             if ' ' in name:
                 name = name.split(' ')[0].lower()
             else:
                 name = name.lower()
 
             filter_symbols.append(name)
-            ticker = self.db.get_ticker_symbol(name)
             if ticker is None:
                 continue
             if '.' in ticker:

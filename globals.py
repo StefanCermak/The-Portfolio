@@ -38,6 +38,8 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 TIMEZONE = "Europe/Vienna"
 CURRENCY = "EUR"
 PROFIT_THRESHOLD = 0.005
+OPENAI_MODEL = "gpt-5-mini"
+
 
 def load_user_config():
     if os.path.exists(CONFIG_FILE):

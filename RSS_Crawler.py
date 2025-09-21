@@ -28,6 +28,8 @@ MULTILINE_MULTI_SPACE_RE = re.compile(r'\s+')
 LINK_CLEARNER_RE = re.compile(r'http\S+')
 EMAIL_CLEARNER_RE = re.compile(r'\S+@\S+')
 GET_SERVER_RE = re.compile(r'https://(.*?)/')
+GET_FILTER_RE = re.compile(r'(?<!\w){}(?!\w)')
+
 
 
 @tools.persistent_timed_cache("fetch_full_article.json", ttl_seconds=3600*24)  # 1 hour cache
@@ -72,6 +74,40 @@ class RssEntry:
     def fetch_full_article(self) -> None:
         self.article = fetch_full_article(self.link)
 
+    def get_artictle_snippet(self, search_words: list[str], pre_words: int = 50, post_words: int = 50) -> str | None:
+        if self.article is None:
+            return None
+        article_lower = self.article.lower()
+        search_words = [word.lower() for word in search_words]
+        hits = []
+        for word_nr, next_article_word in enumerate(article_lower.split()):
+            if next_article_word in search_words:
+                hits.append(word_nr)
+                #print("found word:", next_article_word, "in ", search_words)
+
+        if hits:
+            print_sections = []
+            start = max(0, hits[0]-pre_words)
+            end = min(len(article_lower.split()), hits[0]+post_words)
+            first = True
+            for hit in hits[1:]:
+                if hit - pre_words > end:
+                    if not first:
+                        print_sections.append(".......")
+                    first = False
+                    print_sections.append(" ".join(self.article.split()[start:end]))
+                    start = max(0, hit - pre_words)
+                end = min(len(article_lower.split()), hit + post_words)
+            if not first:
+                print_sections.append(".......")
+            print_sections.append(" ".join(self.article.split()[start:end]))
+            if end < len(article_lower.split()):
+                print_sections.append(".......")
+            return " ".join(print_sections)+'\n'
+
+        return None
+
+
 
 class RssCrawler:
     def __init__(self, rss_feeds: list[str] = None):
@@ -104,14 +140,14 @@ class RssCrawler:
             new_feed_entry = RssEntry(feed_entry['title'], feed_entry['link'], feed_entry['summary'])
             self.rss_entries.append(new_feed_entry)
 
-    def __iter__(self, rss_filters: list[str] = None):
+    def filtered_entries(self, rss_filters: list[str] = None):
         """
         Iteriert über die RSS-Einträge, optional gefiltert nach rss_filters.
         """
         if rss_filters is None:
             rss_filters = []
         for entry in self.rss_entries:
-            if not rss_filters:
+            if rss_filters is None:
                 yield entry
             else:
                 filter_collection = (
@@ -119,14 +155,15 @@ class RssCrawler:
                     (entry.summary if entry.summary else "") + " " +
                     (entry.article if entry.article else "")
                 ).lower()
-                if any(f.lower() in filter_collection for f in rss_filters):
+                if any(re.search(GET_FILTER_RE.pattern.format(re.escape(f.lower())), filter_collection) for f in
+                       rss_filters):
                     yield entry
 
 
 if __name__ == "__main__":
     crawler = RssCrawler()
     rss_filters = ["AAPL", "Apple"]
-    for entry in crawler.__iter__(rss_filters):
+    for entry in crawler.filtered_entries(rss_filters):
         print(entry.title)
         print(entry.link)
         if entry.article:
