@@ -1,10 +1,19 @@
 import logging
 from openai import OpenAI
+from ddgs import DDGS
 
 import stockdata
 import RSS_Crawler
 import tools
 import globals
+
+
+def get_duckduckgo_result(company_name, count=5):
+    with DDGS() as ddgs:
+        results = ddgs.text(f"{company_name} News", max_results=count)
+        if results:
+            return [(r.get('title'), r.get('body')) for r in results[:count] if 'body' in r]
+    return []
 
 
 def get_Report(tickers):
@@ -33,6 +42,10 @@ def get_Report(tickers):
     for entry in crawler.filtered_entries(filter_words):
         info = entry.get_artictle_snippet(filter_words, 75, 75) if entry.article else entry.summary
         news_list.append({'title': entry.title, 'info': info})
+    for (ticker, name) in tickers:
+        duckduckgo_result = get_duckduckgo_result(name, 5)
+        for result in duckduckgo_result:
+            news_list.append({'title': result[0], 'info': result[1]})
 
     analyst_dict = _do_risc_anc_chance_analysis(stock_pile, news_list)
 

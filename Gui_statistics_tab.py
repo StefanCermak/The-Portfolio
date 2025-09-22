@@ -10,7 +10,7 @@ import globals
 import stockdata
 import Db
 import threading
-import daily_report
+import ai_diversification_report
 
 class StatisticsTab:
     """
@@ -306,17 +306,17 @@ class StatisticsTab:
             try:
                 self.button_call_ai_plan.config(state=tk.DISABLED)
                 self.button_call_ai_plan.config(text="🧠💭💭💭💭")
-                ai_text = daily_report.diversification_report(sectors_and_industries)
+                ai_text = ai_diversification_report.get_Report(sectors_and_industries)
                 self.info_diversification.after(0, lambda: handle_ai_text(ai_text))
             except Exception as e:
-                def _show_error_and_reset():
+                def _show_error_and_reset(e):
                     self.info_diversification.config(state=tk.NORMAL)
                     self.info_diversification.delete("1.0", tk.END)
                     self.info_diversification.insert(tk.END, f"AI diversification analysis failed:\n{str(e)}")
                     self.info_diversification.config(state=tk.DISABLED)
                     self.button_call_ai_plan.config(state=tk.NORMAL)
                     self.button_call_ai_plan.config(text="🧠Diversification Plan")
-                self.info_diversification.after(0, _show_error_and_reset)
+                self.info_diversification.after(0, _show_error_and_reset(e))
 
         def handle_ai_text(ai_text):
             self.db.add_diversification_analysis(ai_text)
