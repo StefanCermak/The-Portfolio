@@ -68,8 +68,17 @@ class StockInfoTab:
         self.combobox_stock_selection.grid(column=1, row=0, padx=10, pady=5, sticky="w")
         self.combobox_stock_selection.bind("<<ComboboxSelected>>", self.on_stock_selected)
         
+        # Timespan combobox
+        self.label_timespan_selection = ttk.Label(self.frame_select, text="Timespan:")
+        self.label_timespan_selection.grid(column=2, row=0, padx=10, pady=5, sticky="w")
+        
+        self.combobox_timespan_selection = ttk.Combobox(self.frame_select, values=["All", "Year", "Month", "Day"], state="readonly")
+        self.combobox_timespan_selection.grid(column=3, row=0, padx=10, pady=5, sticky="w")
+        self.combobox_timespan_selection.set("Year")  # Default to Year
+        self.combobox_timespan_selection.bind("<<ComboboxSelected>>", self.on_timespan_selected)
+        
         # Row 1: Chart (left) and Day Data (right)
-        self.frame_chart = ttk.LabelFrame(self.main_frame, text="Last Year Stock Chart")
+        self.frame_chart = ttk.LabelFrame(self.main_frame, text="Stock Chart")
         self.frame_chart.grid(column=0, row=1, padx=10, pady=5, sticky="nsew")
         
         self.frame_day_data = ttk.LabelFrame(self.main_frame, text="Current Day Data")
@@ -156,30 +165,66 @@ class StockInfoTab:
             self.clear_displays()
             return
         
-        # Update chart with year data
+        # Update chart with selected timespan data
         self.update_chart(ticker_symbol)
         
         # Update day data
         self.update_day_data(ticker_symbol)
     
+    def on_timespan_selected(self, event) -> None:
+        """
+        Handle timespan selection from combobox and update chart display.
+        
+        Args:
+            event: The tkinter event (can be None when called programmatically)
+        """
+        # Update chart if a stock is selected
+        selected_stock = self.combobox_stock_selection.get()
+        if selected_stock:
+            ticker_symbol = self.db.get_ticker_symbol(selected_stock)
+            if ticker_symbol:
+                self.update_chart(ticker_symbol)
+    
     def update_chart(self, ticker_symbol: str) -> None:
         """
-        Update the matplotlib chart with the last year's stock data.
+        Update the matplotlib chart with stock data based on selected timespan.
         
         Args:
             ticker_symbol: The ticker symbol to fetch data for
         """
         try:
-            year_data = stockdata.get_stock_year_data(ticker_symbol)
+            # Get selected timespan
+            timespan = self.combobox_timespan_selection.get()
+            
+            # Fetch data based on timespan
+            data = None
+            title_suffix = ""
+            
+            if timespan == "All":
+                data = stockdata.get_stock_all_data(ticker_symbol)
+                title_suffix = "All Available Data"
+            elif timespan == "Year":
+                data = stockdata.get_stock_year_data(ticker_symbol)
+                title_suffix = "Last Year"
+            elif timespan == "Month":
+                data = stockdata.get_stock_month_data(ticker_symbol)
+                title_suffix = "Last Month"
+            elif timespan == "Day":
+                data = stockdata.get_stock_day_chart_data(ticker_symbol)
+                title_suffix = "Today (Intraday)"
+            else:
+                # Default to year if something goes wrong
+                data = stockdata.get_stock_year_data(ticker_symbol)
+                title_suffix = "Last Year"
             
             self.ax.clear()
             
-            if year_data and year_data.get('dates') and year_data.get('prices'):
-                dates = year_data['dates']
-                prices = year_data['prices']
+            if data and data.get('dates') and data.get('prices'):
+                dates = data['dates']
+                prices = data['prices']
                 
                 self.ax.plot(dates, prices, linewidth=2, color='blue')
-                self.ax.set_title(f"{ticker_symbol} - Last Year")
+                self.ax.set_title(f"{ticker_symbol} - {title_suffix}")
                 self.ax.set_xlabel("Date")
                 self.ax.set_ylabel("Price")
                 self.ax.grid(True, alpha=0.3)

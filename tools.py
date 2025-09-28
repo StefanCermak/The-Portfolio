@@ -9,9 +9,16 @@ import pandas as pd
 
 def _json_default(obj):
     if isinstance(obj, (pd.Timestamp,)):
-        return obj.isoformat()
+        return {"__pd_timestamp__": obj.isoformat()}
     # Weitere Typen nach Bedarf ergänzen
     return str(obj)
+
+
+def _json_object_hook(obj):
+    """Object hook for loading JSON to restore pandas timestamps."""
+    if isinstance(obj, dict) and "__pd_timestamp__" in obj:
+        return pd.Timestamp(obj["__pd_timestamp__"])
+    return obj
 
 
 """
@@ -89,7 +96,7 @@ def persistent_cache(cache_file: str):
     if os.path.exists(cache_file):
         try:
             with open(cache_file, "r") as f:
-                cache = json.load(f)
+                cache = json.load(f, object_hook=_json_object_hook)
         except json.JSONDecodeError:
             cache = {}
     else:
@@ -110,7 +117,7 @@ def persistent_cache(cache_file: str):
 
             # Cache speichern
             with open(cache_file, "w") as cache_file_ref:
-                json.dump(cache, cache_file_ref)
+                json.dump(cache, cache_file_ref, default=_json_default)
 
             return result
 
@@ -130,7 +137,7 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "r") as f:
-                    cache = json.load(f)
+                    cache = json.load(f, object_hook=_json_object_hook)
             except json.JSONDecodeError:
                 cache = {}
         else:
@@ -145,7 +152,7 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
         for key in keys_to_delete:
             del cache[key]
         with open(cache_file, "w") as cache_file_ref:
-            json.dump(cache, cache_file_ref)
+            json.dump(cache, cache_file_ref, default=_json_default)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
