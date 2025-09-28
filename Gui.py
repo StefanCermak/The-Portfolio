@@ -14,6 +14,7 @@ from Gui_statistics_tab import StatisticsTab
 from Gui_trade_history_tab import TradeHistoryTab
 from Gui_active_trades_tab import ActiveTradesTab
 from Gui_rss_feeds_tab import RssFeedsTab
+from Gui_StockInfo import StockInfoTab
 
 """
 This file is part of "The Portfolio".
@@ -56,6 +57,7 @@ class BrokerApp:
 
         self.active_trades_tab = ttk.Frame(self.tab_control)
         self.trade_history_tab = ttk.Frame(self.tab_control)
+        self.stock_info_tab = ttk.Frame(self.tab_control)
         self.statistics_tab = ttk.Frame(self.tab_control)
         self.rss_feeds_tab = ttk.Frame(self.tab_control)
         self.manual_trade_tab = ttk.Frame(self.tab_control)
@@ -64,6 +66,7 @@ class BrokerApp:
 
         self.tab_control.add(self.active_trades_tab, text='Active Trades')
         self.tab_control.add(self.trade_history_tab, text='Trade History')
+        self.tab_control.add(self.stock_info_tab, text='StockInfo')
         self.tab_control.add(self.statistics_tab, text='Summary')
         self.tab_control.add(self.rss_feeds_tab, text='RSS Feeds')
         self.tab_control.add(self.manual_trade_tab, text='Manual Trade')
@@ -74,6 +77,7 @@ class BrokerApp:
         # self.setup_tab_active_trades()
         ActiveTradesTab(self.active_trades_tab, self.update_all_tabs, self.register_update_all_tabs)  # <--- NEU
         TradeHistoryTab(self.trade_history_tab, self.register_update_all_tabs)
+        StockInfoTab(self.stock_info_tab, self.register_update_all_tabs)
         StatisticsTab(self.statistics_tab, self.register_update_all_tabs)
         RssFeedsTab(self.rss_feeds_tab)
         ManualTradeTab(self.manual_trade_tab, self.update_all_tabs, self.register_update_all_tabs)
