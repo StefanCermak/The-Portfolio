@@ -254,6 +254,112 @@ def get_stock_year_data(ticker_symbol: str) -> dict | None:
         return None
 
 
+@persistent_timed_cache("get_stock_month_data.json", ttl_seconds=3600)  # 1 hour cache for month data
+def get_stock_month_data(ticker_symbol: str) -> dict | None:
+    """
+    Fetch the last month's stock data for the given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        dict: Dictionary with historical data or None on error.
+            Contains keys: dates, prices, volumes
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        hist = ticker.history(period="1mo")
+        
+        if hist.empty:
+            return None
+            
+        # Convert to lists for easy plotting
+        month_data = {
+            'dates': hist.index.tolist(),
+            'prices': hist['Close'].tolist(),
+            'volumes': hist['Volume'].tolist(),
+            'opens': hist['Open'].tolist(),
+            'highs': hist['High'].tolist(),
+            'lows': hist['Low'].tolist()
+        }
+        
+        return month_data
+    except Exception as e:
+        print(f"Error: Could not fetch month data for {ticker_symbol}: {e}")
+        return None
+
+
+@persistent_timed_cache("get_stock_all_data.json", ttl_seconds=72000)  # 20 hours cache for all data
+def get_stock_all_data(ticker_symbol: str) -> dict | None:
+    """
+    Fetch all available stock data for the given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        dict: Dictionary with historical data or None on error.
+            Contains keys: dates, prices, volumes
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        hist = ticker.history(period="max")
+        
+        if hist.empty:
+            return None
+            
+        # Convert to lists for easy plotting
+        all_data = {
+            'dates': hist.index.tolist(),
+            'prices': hist['Close'].tolist(),
+            'volumes': hist['Volume'].tolist(),
+            'opens': hist['Open'].tolist(),
+            'highs': hist['High'].tolist(),
+            'lows': hist['Low'].tolist()
+        }
+        
+        return all_data
+    except Exception as e:
+        print(f"Error: Could not fetch all data for {ticker_symbol}: {e}")
+        return None
+
+
+@timed_cache(ttl_seconds=60)  # 1 minute cache for day data (non-persistent)
+def get_stock_day_chart_data(ticker_symbol: str) -> dict | None:
+    """
+    Fetch the current day's intraday stock data for the given ticker symbol using yfinance.
+    This is different from get_stock_day_data which returns summary info.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        dict: Dictionary with intraday data or None on error.
+            Contains keys: dates, prices, volumes
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        hist = ticker.history(period="1d", interval="5m")
+        
+        if hist.empty:
+            return None
+            
+        # Convert to lists for easy plotting
+        day_chart_data = {
+            'dates': hist.index.tolist(),
+            'prices': hist['Close'].tolist(),
+            'volumes': hist['Volume'].tolist(),
+            'opens': hist['Open'].tolist(),
+            'highs': hist['High'].tolist(),
+            'lows': hist['Low'].tolist()
+        }
+        
+        return day_chart_data
+    except Exception as e:
+        print(f"Error: Could not fetch day chart data for {ticker_symbol}: {e}")
+        return None
+
+
 if __name__ == "__main__":
     """
     Example calls for demonstration and manual testing.
