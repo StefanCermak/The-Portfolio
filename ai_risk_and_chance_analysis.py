@@ -1,19 +1,12 @@
 import logging
 from openai import OpenAI
-from ddgs import DDGS
+
 
 import stockdata
 import RSS_Crawler
+import WWW_Crawler
 import tools
 import globals
-
-
-def get_duckduckgo_result(company_name, count=5):
-    with DDGS() as ddgs:
-        results = ddgs.text(f"{company_name} News", max_results=count)
-        if results:
-            return [(r.get('title'), r.get('body')) for r in results[:count] if 'body' in r]
-    return []
 
 
 def get_Report(tickers):
@@ -28,7 +21,8 @@ def get_Report(tickers):
          fiftyTwoWeekLow) = stockdata.get_stock_price(ticker, True)
         if current_price is None:
             continue
-        stock_pile[ticker] = {'current_price': current_price, 'currency': currency, 'rate': rate,
+        stock_pile[ticker] = {'stockname': name,
+                              'current_price': current_price, 'currency': currency, 'rate': rate,
                               'regularMarketChangePercent': regularMarketChangePercent, 'marketCap': marketCap,
                               'fiftyTwoWeekHigh': fiftyTwoWeekHigh, 'fiftyTwoWeekLow': fiftyTwoWeekLow}
         if '.' in ticker:
@@ -43,7 +37,7 @@ def get_Report(tickers):
         info = entry.get_artictle_snippet(filter_words, 75, 75) if entry.article else entry.summary
         news_list.append({'title': entry.title, 'info': info})
     for (ticker, name) in tickers:
-        duckduckgo_result = get_duckduckgo_result(name, 5)
+        duckduckgo_result = WWW_Crawler.WWW_Crawler(name, 2, 1)
         for result in duckduckgo_result:
             news_list.append({'title': result[0], 'info': result[1]})
 
@@ -69,7 +63,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
 
     stocks_and_info = "\n    Stocks and Current Prices Information's:\n"
     for (ticker, info) in stock_pile.items():
-        stocks_and_info += f"        - {ticker}: Current Price: {info['current_price']} {info['currency']}"
+        stocks_and_info += f"        - {ticker} / {info['stockname']}: Current Price: {info['current_price']} {info['currency']}"
         if info['rate'] is not None:
             stocks_and_info += f" (Exchange Rate to EUR: {info['rate']})"
         if info.get('regularMarketChangePercent') is not None:

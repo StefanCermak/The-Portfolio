@@ -100,13 +100,13 @@ class ActiveTradesTab:
             portfolio_stock_names = sorted(portfolio_stock_names)
         elif sort_key == "chance":
             portfolio_stock_names = sorted(portfolio_stock_names,
-                                           key=lambda name: stock_summary[name]['chance'] if stock_summary[name][
-                                                                                                 'chance'] is not None else -1,
+                                           key=lambda name: stock_summary[name]['chance'] if isinstance(stock_summary[name][
+                                                                                                 'chance'],(int, float)) else -1,
                                            reverse=True)
         elif sort_key == "risk":
             portfolio_stock_names = sorted(portfolio_stock_names,
-                                           key=lambda name: stock_summary[name]['risk'] if stock_summary[name][
-                                                                                               'risk'] is not None else 101,
+                                           key=lambda name: stock_summary[name]['risk'] if isinstance(stock_summary[name][
+                                                                                                 'risk'],(int, float)) else 101,
                                            reverse=True)
         elif sort_key == "quantity":
             portfolio_stock_names = sorted(portfolio_stock_names,

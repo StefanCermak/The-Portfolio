@@ -2,10 +2,14 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 import webbrowser
+import re
 
 import RSS_Crawler
 import Db
 import tools
+
+
+GET_FILTER_RE = re.compile(r'(?<!\w){}(?!\w)')
 
 
 class RssFeedsTab:
@@ -20,8 +24,8 @@ class RssFeedsTab:
         self.rss_treeview.heading("Server", text="Server")
         self.rss_treeview.heading("Summary", text="Summary")
         self.rss_treeview.column("#0", width=30, stretch=False)
-        self.rss_treeview.column("Server", width=100)
-        self.rss_treeview.column("Summary", width=525)
+        self.rss_treeview.column("Server", width=200, stretch=False)
+        self.rss_treeview.column("Summary", width=600)
         self.rss_treeview.pack(fill="both", expand=True)
         self.rss_treeview.insert("", "end", values=("still fetching data", "", "--- please wait ---"))
         self.update_rss_feeds()
@@ -47,12 +51,20 @@ class RssFeedsTab:
             self.treeview_id_additional_datas = {}
             sorted_servers = sorted(server_dict.keys())
             for server in sorted_servers:
-                server_line_id = self.rss_treeview.insert("", "end", values=(server, f"------------------------------------------------------------------------------------------------------------------------------------------------------"))
+                spaltenbreite = self.rss_treeview.column("Summary", option="width")
+                zeichen_pro_pixel = 0.7  # ggf. anpassen
+                anzahl_zeichen = int(spaltenbreite * zeichen_pro_pixel)
+                trennstrich = "─" * anzahl_zeichen
+                server_line_id = self.rss_treeview.insert("", "end", values=(server, trennstrich))
                 entries = server_dict[server]
                 for entry in entries:
+                    filter_collection = (
+                        (entry.title.lower() + " ") +
+                        (entry.summary.lower() if entry.summary else "") + " " +
+                        (entry.article.lower() if entry.article else ""))
                     tags = []
                     for tag in symbols:
-                        if tag in entry.title.lower() or tag in entry.summary.lower() or (entry.article and tag in entry.article.lower()):
+                        if re.search(GET_FILTER_RE.pattern.format(re.escape(tag)), filter_collection):
                             tags.append(tag)
                     # sort tags alphabetically, ignore case
                     tags.sort(key=lambda s: s.lower())

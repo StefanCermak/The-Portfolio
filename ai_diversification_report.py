@@ -69,7 +69,6 @@ def get_Report(analyst_dict):
         Please provide a diversification analysis of the current industries, and suggest which industries
         could be increased for better diversification.
         Consider market trends(also saisonal effects), economic outlook, and potential risks associated with each industry.
-        for stocks not traded in EUR consider the exchange rate risk to EUR. depending on the currency and its volatility.
         Provide your analysis in German.
         Here are some actual news ticker headlines that might be relevant for the analysis:
         {get_rss_general_news()}
@@ -89,7 +88,7 @@ def get_Report(analyst_dict):
         model="gpt-5-mini",
         messages=[
             {"role": "system",
-             "content": "Du bist ein deutschsprachiger Finanzanalyst. Deine Anworten sollen auf 80 Zeichen pro Zeile begrenzt sein."},
+             "content": "Du bist ein deutschsprachiger Finanzanalyst. Deine Antworte sollen auf 80 Zeichen pro Zeile begrenzt sein, darf aber mehrzeilig sein."},
             {"role": "user", "content": prompt}
         ],
         max_completion_tokens=10000,

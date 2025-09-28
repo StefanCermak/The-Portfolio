@@ -21,7 +21,7 @@ RSS_FEEDS_TICKERS = [
     "https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml",
     "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
     "https://rss.orf.at/news.xml"
-    ]
+]
 
 HTML_CLEARNER_RE = re.compile('<.*?>')
 MULTILINE_MULTI_SPACE_RE = re.compile(r'\s+')
@@ -31,8 +31,7 @@ GET_SERVER_RE = re.compile(r'https://(.*?)/')
 GET_FILTER_RE = re.compile(r'(?<!\w){}(?!\w)')
 
 
-
-@tools.persistent_timed_cache("fetch_full_article.json", ttl_seconds=3600*24)  # 1 hour cache
+@tools.persistent_timed_cache("fetch_full_article.json", ttl_seconds=3600 * 24)  # 1 hour cache
 def fetch_full_article(url: str) -> str | None:
     headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
     try:
@@ -83,12 +82,12 @@ class RssEntry:
         for word_nr, next_article_word in enumerate(article_lower.split()):
             if next_article_word in search_words:
                 hits.append(word_nr)
-                #print("found word:", next_article_word, "in ", search_words)
+                # print("found word:", next_article_word, "in ", search_words)
 
         if hits:
             print_sections = []
-            start = max(0, hits[0]-pre_words)
-            end = min(len(article_lower.split()), hits[0]+post_words)
+            start = max(0, hits[0] - pre_words)
+            end = min(len(article_lower.split()), hits[0] + post_words)
             first = True
             for hit in hits[1:]:
                 if hit - pre_words > end:
@@ -103,10 +102,9 @@ class RssEntry:
             print_sections.append(" ".join(self.article.split()[start:end]))
             if end < len(article_lower.split()):
                 print_sections.append(".......")
-            return " ".join(print_sections)+'\n'
+            return " ".join(print_sections) + '\n'
 
         return None
-
 
 
 class RssCrawler:
@@ -122,7 +120,7 @@ class RssCrawler:
             self.fetch_rss_feed(rss_feed)
 
     @staticmethod
-    @tools.persistent_timed_cache("fetch_rss_feed.json", ttl_seconds=3600*24)
+    @tools.persistent_timed_cache("fetch_rss_feed.json", ttl_seconds=3600 * 24)
     def fetch_rss_feed_static(rss_url: str):
         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
         response = requests.get(rss_url, headers=headers)
@@ -151,9 +149,9 @@ class RssCrawler:
                 yield entry
             else:
                 filter_collection = (
-                    (entry.title + " ") +
-                    (entry.summary if entry.summary else "") + " " +
-                    (entry.article if entry.article else "")
+                        (entry.title + " ") +
+                        (entry.summary if entry.summary else "") + " " +
+                        (entry.article if entry.article else "")
                 ).lower()
                 if any(re.search(GET_FILTER_RE.pattern.format(re.escape(f.lower())), filter_collection) for f in
                        rss_filters):
