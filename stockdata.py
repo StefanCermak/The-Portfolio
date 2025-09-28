@@ -187,6 +187,73 @@ def get_ticker_symbol_name_from_isin(isin: str) -> str | None:
         return None
 
 
+@timed_cache(ttl_seconds=300)  # 5 minutes cache for day data
+def get_stock_day_data(ticker_symbol: str) -> dict | None:
+    """
+    Fetch the current day's stock data for the given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        dict: Dictionary with current day's stock information or None on error.
+            Contains keys: open, high, low, close, volume, change_percent
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        info = ticker.info
+        
+        # Get basic day data
+        day_data = {
+            'open': info.get('regularMarketOpen'),
+            'high': info.get('regularMarketDayHigh'),
+            'low': info.get('regularMarketDayLow'),
+            'close': info.get('regularMarketPrice'),
+            'volume': info.get('regularMarketVolume'),
+            'change_percent': info.get('regularMarketChangePercent')
+        }
+        
+        return day_data
+    except Exception as e:
+        print(f"Error: Could not fetch day data for {ticker_symbol}: {e}")
+        return None
+
+
+@timed_cache(ttl_seconds=72000)  # 20 hours cache for year data
+def get_stock_year_data(ticker_symbol: str) -> dict | None:
+    """
+    Fetch the last year's stock data for the given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        dict: Dictionary with historical data or None on error.
+            Contains keys: dates, prices, volumes
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        hist = ticker.history(period="1y")
+        
+        if hist.empty:
+            return None
+            
+        # Convert to lists for easy plotting
+        year_data = {
+            'dates': hist.index.tolist(),
+            'prices': hist['Close'].tolist(),
+            'volumes': hist['Volume'].tolist(),
+            'opens': hist['Open'].tolist(),
+            'highs': hist['High'].tolist(),
+            'lows': hist['Low'].tolist()
+        }
+        
+        return year_data
+    except Exception as e:
+        print(f"Error: Could not fetch year data for {ticker_symbol}: {e}")
+        return None
+
+
 if __name__ == "__main__":
     """
     Example calls for demonstration and manual testing.
