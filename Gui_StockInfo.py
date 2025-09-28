@@ -57,14 +57,14 @@ class StockInfoTab:
         self.main_frame.grid_rowconfigure(2, weight=1)
         
         # Top frame for stock selection
-        self.frame_selection = ttk.LabelFrame(self.main_frame, text="Stock Selection")
-        self.frame_selection.grid(column=0, row=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        self.frame_select = ttk.LabelFrame(self.main_frame, text="Selection")
+        self.frame_select.grid(column=0, row=0, columnspan=2, padx=10, pady=5, sticky="ew")
         
         # Stock name combobox
-        self.label_stock_selection = ttk.Label(self.frame_selection, text="Select Stock:")
+        self.label_stock_selection = ttk.Label(self.frame_select, text="Select Stock:")
         self.label_stock_selection.grid(column=0, row=0, padx=10, pady=5, sticky="w")
         
-        self.combobox_stock_selection = ttk.Combobox(self.frame_selection, values=[], state="readonly")
+        self.combobox_stock_selection = ttk.Combobox(self.frame_select, values=[], state="readonly")
         self.combobox_stock_selection.grid(column=1, row=0, padx=10, pady=5, sticky="w")
         self.combobox_stock_selection.bind("<<ComboboxSelected>>", self.on_stock_selected)
         

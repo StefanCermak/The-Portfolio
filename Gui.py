@@ -66,7 +66,7 @@ class BrokerApp:
 
         self.tab_control.add(self.active_trades_tab, text='Active Trades')
         self.tab_control.add(self.trade_history_tab, text='Trade History')
-        self.tab_control.add(self.stock_info_tab, text='StockInfo')
+        self.tab_control.add(self.stock_info_tab, text='Stock Info')
         self.tab_control.add(self.statistics_tab, text='Summary')
         self.tab_control.add(self.rss_feeds_tab, text='RSS Feeds')
         self.tab_control.add(self.manual_trade_tab, text='Manual Trade')

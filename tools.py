@@ -4,6 +4,15 @@ import json
 import hashlib
 from functools import wraps
 import tkinter as tk
+import pandas as pd
+
+
+def _json_default(obj):
+    if isinstance(obj, (pd.Timestamp,)):
+        return obj.isoformat()
+    # Weitere Typen nach Bedarf ergänzen
+    return str(obj)
+
 
 """
 This file is part of "The Portfolio".
@@ -115,6 +124,7 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
     Dekorator für persistenten, zeitbasierten Cache.
     Speichert Ergebnisse in einer JSON-Datei und prüft die Gültigkeit per TTL.
     """
+
     def decorator(func):
         # Cache laden
         if os.path.exists(cache_file):
@@ -139,7 +149,7 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=str)
+            key_raw = json.dumps({'args': args, 'kwargs': kwargs}, sort_keys=True, default=_json_default)
             key = hashlib.sha256(key_raw.encode()).hexdigest()
             now = time.time()
 
@@ -154,10 +164,11 @@ def persistent_timed_cache(cache_file: str, ttl_seconds: int = 86400):
             result = func(*args, **kwargs)
             cache[key] = {"result": result, "timestamp": now}
             with open(cache_file, "w") as cache_file_ref:
-                json.dump(cache, cache_file_ref)
+                json.dump(cache, cache_file_ref, default=_json_default)
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -223,6 +234,7 @@ class ToolTip:
     Tooltip widget for tkinter.
     Displays a tooltip with the given text near the associated widget.
     """
+
     def __init__(self, widget: tk.Widget) -> None:
         """
         Initialize the ToolTip.

@@ -1,4 +1,4 @@
-from tools import timed_cache, persistent_cache
+from tools import timed_cache, persistent_cache, persistent_timed_cache
 
 import yfinance as yf
 import yahooquery
@@ -219,7 +219,7 @@ def get_stock_day_data(ticker_symbol: str) -> dict | None:
         return None
 
 
-@timed_cache(ttl_seconds=72000)  # 20 hours cache for year data
+@persistent_timed_cache("get_stock_year_data.json", ttl_seconds=72000)  # 20 hours cache for year data
 def get_stock_year_data(ticker_symbol: str) -> dict | None:
     """
     Fetch the last year's stock data for the given ticker symbol using yfinance.
