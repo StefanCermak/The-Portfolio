@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Callable, Any
 import datetime
@@ -229,6 +230,9 @@ class StockInfoTab:
                 self.ax.set_ylabel("Price")
                 self.ax.grid(True, alpha=0.3)
                 
+                # Custom date formatting based on timespan
+                self._format_time_axis(timespan)
+                
                 # Format x-axis dates
                 self.fig.autofmt_xdate()
             else:
@@ -248,6 +252,43 @@ class StockInfoTab:
                        transform=self.ax.transAxes, fontsize=12)
             self.ax.set_title(f"{ticker_symbol} - Error")
             self.canvas.draw()
+    
+    def _format_time_axis(self, timespan: str) -> None:
+        """
+        Format the x-axis time labels based on the selected timespan.
+        
+        Args:
+            timespan: The selected timespan ("Day", "Month", "Year", "All")
+        """
+        try:
+            if timespan == "Day":
+                # Day: Show hours as axis labels
+                self.ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))  # Every 2 hours
+                self.ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))  # Every hour
+                self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+                
+            elif timespan == "Month":
+                # Month: Show days as axis labels (month not necessary as it's clear)
+                self.ax.xaxis.set_major_locator(mdates.DayLocator(interval=5))  # Every 5 days
+                self.ax.xaxis.set_minor_locator(mdates.DayLocator(interval=1))  # Every day
+                self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+                
+            elif timespan == "Year":
+                # Year: Show months as axis labels (all 12 months should be there)
+                self.ax.xaxis.set_major_locator(mdates.MonthLocator())  # Every month
+                self.ax.xaxis.set_minor_locator(mdates.WeekdayLocator())  # Every week
+                self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))  # Short month names
+                
+            elif timespan == "All":
+                # All: Show only year transitions (not every year needs to be shown)
+                self.ax.xaxis.set_major_locator(mdates.YearLocator())  # Every year
+                self.ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=[1, 7]))  # Jan and July
+                self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+                
+        except Exception as e:
+            print(f"Warning: Could not format time axis for {timespan}: {e}")
+            # Fallback to default formatting
+            self.fig.autofmt_xdate()
     
     def update_day_data(self, ticker_symbol: str) -> None:
         """
