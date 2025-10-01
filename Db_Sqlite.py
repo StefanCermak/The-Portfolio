@@ -51,6 +51,14 @@ class DbSqlite:
                 is_active_series INTEGER NOT NULL CHECK (is_active_series IN (0, 1)),
                 FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
         self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS dividend_payments (
+                ticker_symbol TEXT NOT NULL,
+                payment_date TEXT NOT NULL,
+                amount REAL NOT NULL,
+                PRIMARY KEY (ticker_symbol, payment_date),
+                FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol)
+            );''')
+        self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS trade_history (
                 trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker_symbol TEXT NOT NULL,
@@ -66,6 +74,7 @@ class DbSqlite:
                 chance_explanation TEXT,
                 risk INTEGER NOT NULL,
                 risk_explanation TEXT,
+                stock_news TEXT,
                 PRIMARY KEY (ticker_symbol, analysis_date),
                 FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));''')
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS ai_diversification_analysis(
@@ -350,13 +359,14 @@ class DbSqlite:
         print(analysis_dict)
         for ticker, analysis_result_dict in analysis_dict.items():
             self.cursor.execute('''
-                INSERT OR REPLACE INTO ai_stock_analysis (ticker_symbol, analysis_date, chance, chance_explanation, risk, risk_explanation)
-                VALUES (?, ?, ?, ?, ?, ?);
+                INSERT OR REPLACE INTO ai_stock_analysis (ticker_symbol, analysis_date, chance, chance_explanation, risk, risk_explanation, stock_news)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
             ''', (ticker, datetime.date.today().isoformat(),
                   analysis_result_dict['chance'][0] if analysis_result_dict['chance'][0] is not None else -1,
                   analysis_result_dict['chance'][1],
                   analysis_result_dict['risk'][0] if analysis_result_dict['risk'][0] is not None else -1,
-                  analysis_result_dict['risk'][1]))
+                  analysis_result_dict['risk'][1],
+                  analysis_result_dict['news']))
         self.connection.commit()
 
     def add_diversification_analysis(self, analysis_text: str) -> None:
