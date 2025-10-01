@@ -15,6 +15,7 @@ from Gui_trade_history_tab import TradeHistoryTab
 from Gui_active_trades_tab import ActiveTradesTab
 from Gui_rss_feeds_tab import RssFeedsTab
 from Gui_StockInfo import StockInfoTab
+from Gui_dividends_tab import DividendsTab
 
 """
 This file is part of "The Portfolio".
@@ -56,6 +57,7 @@ class BrokerApp:
         self.tab_control = ttk.Notebook(self.Window)
 
         self.active_trades_tab = ttk.Frame(self.tab_control)
+        self.dividends_tab = ttk.Frame(self.tab_control)
         self.trade_history_tab = ttk.Frame(self.tab_control)
         self.stock_info_tab = ttk.Frame(self.tab_control)
         self.statistics_tab = ttk.Frame(self.tab_control)
@@ -65,6 +67,7 @@ class BrokerApp:
         self.about_tab = ttk.Frame(self.tab_control)
 
         self.tab_control.add(self.active_trades_tab, text='Active Trades')
+        self.tab_control.add(self.dividends_tab, text='Dividends')
         self.tab_control.add(self.trade_history_tab, text='Trade History')
         self.tab_control.add(self.stock_info_tab, text='Stock Info')
         self.tab_control.add(self.statistics_tab, text='Summary')
@@ -76,6 +79,7 @@ class BrokerApp:
 
         # self.setup_tab_active_trades()
         ActiveTradesTab(self.active_trades_tab, self.update_all_tabs, self.register_update_all_tabs)  # <--- NEU
+        DividendsTab(self.dividends_tab, self.register_update_all_tabs)
         TradeHistoryTab(self.trade_history_tab, self.register_update_all_tabs)
         StockInfoTab(self.stock_info_tab, self.register_update_all_tabs)
         StatisticsTab(self.statistics_tab, self.register_update_all_tabs)
