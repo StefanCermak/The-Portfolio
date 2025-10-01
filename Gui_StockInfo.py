@@ -82,7 +82,7 @@ class StockInfoTab:
         self.frame_chart = ttk.LabelFrame(self.main_frame, text="Stock Chart")
         self.frame_chart.grid(column=0, row=1, padx=10, pady=5, sticky="nsew")
         
-        self.frame_day_data = ttk.LabelFrame(self.main_frame, text="Current Day Data")
+        self.frame_day_data = ttk.LabelFrame(self.main_frame, text="Stock Overview")
         self.frame_day_data.grid(column=1, row=1, padx=10, pady=5, sticky="nsew")
         
         # Row 2: Health Check (left) and Peer Compare (right)
@@ -304,17 +304,32 @@ class StockInfoTab:
             self.text_day_data.delete(1.0, tk.END)
             
             if day_data:
-                content = f"Current Day Data for {ticker_symbol}\n"
+                content = f"Stock Overview for {ticker_symbol}\n"
                 content += f"{'='*40}\n\n"
-                content += f"Open:         {self.format_value(day_data.get('open'))}\n"
-                content += f"High:         {self.format_value(day_data.get('high'))}\n"
-                content += f"Low:          {self.format_value(day_data.get('low'))}\n"
-                content += f"Close:        {self.format_value(day_data.get('close'))}\n"
-                content += f"Volume:       {self.format_number(day_data.get('volume'))}\n"
-                content += f"Change %:     {self.format_percent(day_data.get('change_percent'))}\n"
+                content += f"Open:               {self.format_value(day_data.get('open'))} {day_data.get('currency') or 'N/A'}\n"
+                content += f"High:               {self.format_value(day_data.get('high'))} {day_data.get('currency') or 'N/A'}\n"
+                content += f"Low:                {self.format_value(day_data.get('low'))} {day_data.get('currency') or 'N/A'}\n"
+                content += f"Close:              {self.format_value(day_data.get('close'))} {day_data.get('currency') or 'N/A'}\n"
+                content += f"Volume:             {self.format_number(day_data.get('volume'))}\n"
+                content += f"Change %:           {self.format_percent(day_data.get('change_percent'))}\n"
+                content += f"Dividend Yield:     {self.format_percent(day_data.get('dividend_yield'))}\n"
+                content += f"Currency:           {day_data.get('currency') or 'N/A'}\n"
+                content += f"Last Dividend:      {self.format_value(day_data.get('last_dividend'))} {day_data.get('currency') or 'in Stock Currency'}\n"
+                content += f"Next Ex-Date:       {day_data.get('next_ex_date') or 'N/A'}\n"
+                content += f"Frequency:          {day_data.get('frequency') or 'N/A'}\n"
+                # Letzte 4 Dividenden
+                last_divs = day_data.get('last_dividends', [])
+                if last_divs:
+                    content += f"\nLast Dividends:\n"
+                    for div in last_divs:
+                        idx = f"-{div['index']}"
+                        date = div['date']
+                        percent = f"{div['percent']}%" if div['percent'] is not None else "N/A"
+                        content += f"{idx}: {date:<15} {percent}\n"
                 content += f"\nLast updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             else:
                 content = f"No current day data available for {ticker_symbol}"
+                
             
             self.text_day_data.insert(tk.END, content)
             self.text_day_data.config(state=tk.DISABLED)

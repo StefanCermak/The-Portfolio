@@ -2,6 +2,8 @@ from tools import timed_cache, persistent_cache, persistent_timed_cache
 
 import yfinance as yf
 import yahooquery
+from datetime import datetime, timedelta
+import pandas as pd
 
 """
 This file is part of "The Portfolio".
@@ -128,7 +130,7 @@ def get_industry_and_sector(ticker_symbol: str) -> tuple[str | None, str | None]
     try:
         ticker = yf.Ticker(ticker_symbol)
         stock_info = ticker.info
-        print(stock_info)
+        #print(stock_info)
         industry = stock_info.get('industry', None)
         sector = stock_info.get('sector', None)
         return industry, sector
@@ -197,22 +199,34 @@ def get_stock_day_data(ticker_symbol: str) -> dict | None:
 
     Returns:
         dict: Dictionary with current day's stock information or None on error.
-            Contains keys: open, high, low, close, volume, change_percent
+            Contains keys: open, high, low, close, volume, change_percent, dividend_yield, currency,
+                          last_dividend, next_ex_date, frequency, last_dividends
     """
     try:
         ticker = yf.Ticker(ticker_symbol)
         info = ticker.info
-        
-        # Get basic day data
+
         day_data = {
             'open': info.get('regularMarketOpen'),
             'high': info.get('regularMarketDayHigh'),
             'low': info.get('regularMarketDayLow'),
             'close': info.get('regularMarketPrice'),
             'volume': info.get('regularMarketVolume'),
-            'change_percent': info.get('regularMarketChangePercent')
+            'change_percent': info.get('regularMarketChangePercent'),
+            'dividend_yield': info.get('dividendYield'),
+            'currency': info.get('currency')
         }
-        
+        div_info = get_dividend_info(ticker_symbol)
+        if div_info:
+            day_data['last_dividend'] = div_info.get('last_dividend')
+            day_data['next_ex_date'] = div_info.get('next_ex_date')
+            day_data['frequency'] = div_info.get('frequency')
+            day_data['last_dividends'] = div_info.get('last_dividends', [])
+        else:
+            day_data['last_dividend'] = None
+            day_data['next_ex_date'] = None
+            day_data['frequency'] = None
+            day_data['last_dividends'] = []
         return day_data
     except Exception as e:
         print(f"Error: Could not fetch day data for {ticker_symbol}: {e}")
@@ -358,6 +372,86 @@ def get_stock_day_chart_data(ticker_symbol: str) -> dict | None:
     except Exception as e:
         print(f"Error: Could not fetch day chart data for {ticker_symbol}: {e}")
         return None
+
+
+@persistent_timed_cache("get_dividend_info.json", ttl_seconds=604800)  # 7 Tage Cache
+def get_dividend_info(ticker_symbol: str) -> dict | None:
+    """
+    Liefert Infos zur letzten Dividende, nächstem Ex-Dividenden-Datum, Auszahlungshäufigkeit und die letzten 4 Dividenden.
+    Args:
+        ticker_symbol (str): Das Tickersymbol (z.B. 'AAPL').
+    Returns:
+        dict: { 'last_dividend': float|None, 'next_ex_date': str|None, 'frequency': str|None, 'last_dividends': list }
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        divs = ticker.dividends
+        if divs is None or divs.empty:
+            return {'last_dividend': None, 'next_ex_date': None, 'frequency': None, 'last_dividends': []}
+        # Letzte Dividende
+        last_dividend = float(divs.iloc[-1]) if not divs.empty else None
+        # Auszahlungshäufigkeit berechnen
+        if len(divs) >= 2:
+            divs_sorted = divs.sort_index(ascending=False)
+            dates = divs_sorted.index[:5]
+            if len(dates) >= 2:
+                intervals = [(dates[i] - dates[i+1]).days for i in range(len(dates)-1)]
+                avg_days = sum(intervals) / len(intervals)
+                if avg_days < 40: # 30 + 10 Puffer
+                    frequency = "Monatlich"
+                elif avg_days < 100: # 3 * 30 + 10 Puffer
+                    frequency = "Quartalsweise"
+                elif avg_days < 190: # 6 * 30 + 10 Puffer
+                    frequency = "Halbjährlich"
+                else:
+                    frequency = "Jährlich"
+            else:
+                frequency = None
+        else:
+            frequency = None
+        # Nächstes Ex-Dividenden-Datum
+        cal = ticker.calendar
+        next_ex_date = None
+        if isinstance(cal, pd.DataFrame) and 'exDividendDate' in cal.index:
+            ex_date_val = cal.loc['exDividendDate'].values[0]
+            if pd.notnull(ex_date_val):
+                if isinstance(ex_date_val, (pd.Timestamp, datetime)):
+                    next_ex_date = ex_date_val.strftime('%Y-%m-%d')
+                else:
+                    try:
+                        next_ex_date = str(pd.to_datetime(ex_date_val).date())
+                    except Exception:
+                        next_ex_date = str(ex_date_val)
+        # Letzte 4 Dividenden (Datum, Betrag, Rendite)
+        last_dividends = []
+        currency = None
+        try:
+            currency = ticker.info.get('currency', None)
+        except Exception:
+            pass
+        price = ticker.info.get('regularMarketPrice', None)
+        for i, (date, amount) in enumerate(divs.sort_index(ascending=False).iloc[:4].items()):
+            # Berechne Dividendenrendite zum aktuellen Kurs (falls möglich)
+            percent = None
+            if price and amount:
+                percent = round(100 * amount / price, 2)
+            # Format Datum: "2025-December"
+            date_str = f"{date.year}-{date.strftime('%B')}"
+            last_dividends.append({
+                'index': i+1,
+                'date': date_str,
+                'amount': float(amount),
+                'percent': percent
+            })
+        return {
+            'last_dividend': last_dividend,
+            'next_ex_date': next_ex_date,
+            'frequency': frequency,
+            'last_dividends': last_dividends
+        }
+    except Exception as e:
+        print(f"Error: Could not fetch dividend info for {ticker_symbol}: {e}")
+        return {'last_dividend': None, 'next_ex_date': None, 'frequency': None, 'last_dividends': []}
 
 
 if __name__ == "__main__":

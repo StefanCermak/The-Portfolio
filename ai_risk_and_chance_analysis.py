@@ -85,6 +85,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
     Given on the following stock information, 
         provide a table of the stocks the table shall contain 3 columns: Ticker, Chance indicator(0-100), Verbal explanation of the chance indicator.
         provide a table of the stocks the table shall contain 3 columns: Ticker, Risk indicator(0-100), Verbal explanation of the risk indicator.
+        provide a table of the stocks the table shall contain 2 columns: Ticker, A small summary of all stock news provided.
     The chance and risk indicators should be based on the 
         current price and 
         the sector the company is in,
@@ -93,6 +94,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
         competition in the market,        
     The indicators should be a number between 0 and 100, where 0 means no chance/risk and 100 means very high chance/risk.
     Provide the tables in csv format, the ticker name, as well as the Verbal explanation shall be within quotes ("), the risk number and chance number shall be integer numbers without quotes.
+    The 3rd table shall provide a small summary of all news provided for each stock, the summary shall be within quotes (") and max 15 sentences.
     Only provide the tables, no additional text.
     Make sure the csv format is correct, so that it can be easily imported into a spreadsheet program.
     If you do not have enough information to provide a chance or risk indicator, use 0 for chance and 100 for risk, and explain in the verbal explanation that there was not enough information.
@@ -104,12 +106,16 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
     "RHM.DE",60,"Rheinmetall AG is in a volatile sector with mixed recent news."
     Risk Table:
     "AAPL",15,"Apple Inc. has low risk due to its diversified product line."
-    "RHM.DE",40,"Rheinmetall AG faces risks from geopolitical tensions affecting its defense contracts."    
+    "RHM.DE",40,"Rheinmetall AG faces risks from geopolitical tensions affecting its defense contracts."
+    News Table:
+    "AAPL","Apple will announce new Products on 7. September. There will also be an Update of the  iOS. Ironically, the new iPhone will not support 5G."
+    "RHM.DE","Rheinmetall AG is planning to expand its production capacity in 2024. The company is also facing challenges due to supply chain issues."
     --------------------------------------------------------------------------------
 {stocks_and_info}
     --------------------------------------------------------------------------------
 {news_section}
     """
+    print(prompt)
     logging.info("Prompt for AI risk and chance analysis:\n" + prompt)
     client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
     response = client.chat.completions.create(
@@ -123,6 +129,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
         n=1,
         stop=None,
     )
+    print(response.choices[0].message.content)
     logging.info('AI RAW RESPONSE:\n' + "\n    ".join(response.choices[0].message.content.splitlines()).strip())
     total_cost_usd = open_ai_bill(response)
     logging.info('AI RESPONSE COST: $' + f"{total_cost_usd:.6f}")
@@ -130,14 +137,22 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
     result_dict = {}
     in_chance_table = False
     in_risk_table = False
+    in_news_table = False
     for line in response.choices[0].message.content.splitlines():
         if "Chance Table:" in line:
             in_chance_table = True
             in_risk_table = False
+            in_news_table = False
             continue
         elif "Risk Table:" in line:
             in_chance_table = False
             in_risk_table = True
+            in_news_table = False
+            continue
+        elif "News Table:" in line:
+            in_chance_table = False
+            in_risk_table = False
+            in_news_table = True
             continue
         elif line.strip() == "":
             continue
@@ -154,7 +169,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
             if ticker in result_dict:
                 result_dict[ticker]['chance'] = (chance, explanation)
             else:
-                result_dict[ticker] = {'chance': (chance, explanation), 'risk': (None, None)}
+                result_dict[ticker] = {'chance': (chance, explanation), 'risk': (None, None), 'news': ''}
         elif in_risk_table:
             parts = line.split(',')
             if len(parts) < 3:
@@ -168,6 +183,16 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
             if ticker in result_dict:
                 result_dict[ticker]['risk'] = (risk, explanation)
             else:
-                result_dict[ticker] = {'chance': (None, None), 'risk': (risk, explanation)}
+                result_dict[ticker] = {'chance': (None, None), 'risk': (risk, explanation), 'news': ''}
+        elif in_news_table:
+            parts = line.split(',', 1)
+            if len(parts) < 2:
+                continue
+            ticker = parts[0].strip().strip('"')
+            summary = parts[1].strip().strip('"')
+            if ticker in result_dict:
+                result_dict[ticker]['news'] = summary
+            else:
+                result_dict[ticker] = {'chance': (None, None), 'risk': (None, None), 'news': summary}
 
     return result_dict
