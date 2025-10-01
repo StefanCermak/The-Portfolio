@@ -126,6 +126,30 @@ class Db:
         if self.db_sqlite is not None:
             self.db_sqlite.sell_stock(stockname, earnings, sell_date)
 
+    def add_dividend_payment(self, ticker_symbol: str, payment_date: datetime.date, amount: float) -> None:
+        """
+        Add a dividend payment record.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+            payment_date (datetime.date): The date of the payment.
+            amount (float): The amount paid.
+        """
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_dividend_payment(ticker_symbol, payment_date, amount)
+
+    def get_dividend_payments(self) -> List[Dict[str, Any]]:
+        """
+        Get all dividend payment records.
+
+        Returns:
+            list: List of dividend payment records as dicts.
+        """
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_dividend_payments()
+        else:
+            return []
+
     def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: bool = False) -> None:
         """
         Add or update a stock name and ticker symbol mapping.

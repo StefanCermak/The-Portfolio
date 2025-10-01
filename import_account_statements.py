@@ -88,6 +88,9 @@ def process_transactions(db: Db.Db, transactions: list):
             db.add_stockname_ticker(stockname, ticker_symbol)
             db.add_stock_trade(ticker_symbol, -quantity, -price, trade_date)
             logging.info(f"Processed Sell transaction: {quantity} of {ticker_symbol} at {price} on {trade_date}")
+        elif transaction['type'] =='Dividend':
+            db.add_dividend_payment(ticker_symbol, trade_date, price)
+            logging.info(f"Processed Dividend transaction: {ticker_symbol} dividend of {price} on {trade_date}")
         else:
             logging.warning(
                 f"Unknown transaction type {transaction['type']} for stockname {stockname}. Skipping transaction.")
@@ -117,19 +120,33 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
     split_description_regex = re.compile(r'(\w+) (.*), +quantity: +([\d.]+)')
 
     def finish_line(transactions, current_line):
-        regex_result = split_description_regex.match(current_line['description'])
-        if regex_result:
-            stockname = regex_result.group(2)
-            isin = regex_result.group(1)
-            quantity = float(regex_result.group(3))
+        if 'type' not in current_line.keys() or 'description' not in current_line.keys() or 'price' not in current_line.keys():
+            return
+        if current_line['type'] == 'Dividend':
+            isin = current_line['description']
             ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
             if 'year' not in current_line.keys():
                 print("No year in line:", current_line)
                 return
             date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
             transactions.append(
-                {'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname,
-                 'quantity': quantity, 'price': current_line['price']})
+                {'date': date, 'type': 'Dividend', 'ticker': ticker_symbol, 'stockname': '',
+                 'quantity': 1, 'price': current_line['price']})
+
+        else:
+            regex_result = split_description_regex.match(current_line['description'])
+            if regex_result:
+                stockname = regex_result.group(2)
+                isin = regex_result.group(1)
+                quantity = float(regex_result.group(3))
+                ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
+                if 'year' not in current_line.keys():
+                    print("No year in line:", current_line)
+                    return
+                date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
+                transactions.append(
+                    {'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname,
+                    'quantity': quantity, 'price': current_line['price']})
 
     transactions = []
 
@@ -174,6 +191,13 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
                         current_line['description'] = ' '.join(description)
                         current_line['price'] = float(price.replace('.', '').replace(',', '.'))
                         #finish_line(transactions, current_line)
+                    case [Month, "Erträge", "Cash", "Dividend", "for", "ISIN", ISIN, earning, "€", _, "€"] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
+                                                            "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
+                        current_line['type'] = "Dividend"
+                        current_line['description'] = ISIN
+                        current_line['price'] = float(earning.replace('.', '').replace(',', '.'))
 
                     case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
                                                    "Sept.", "Okt.", "Nov.", "Dez."]:

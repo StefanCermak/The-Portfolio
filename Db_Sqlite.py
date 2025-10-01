@@ -232,6 +232,42 @@ class DbSqlite:
             ''', (ticker_symbol,))
         self.connection.commit()
 
+    def add_dividend_payment(self, ticker_symbol: str, payment_date: datetime.date, amount: float) -> None:
+        """
+        Add a dividend payment record.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+            payment_date (datetime.date): The date of the payment.
+            amount (float): The amount paid.
+        """
+        self.cursor.execute('''
+            INSERT OR REPLACE INTO dividend_payments (ticker_symbol, payment_date, amount)
+            VALUES (?, ?, ?);
+        ''', (ticker_symbol, payment_date.isoformat(), amount))
+        self.connection.commit()
+
+    def get_dividend_payments(self) -> List[Dict[str, Any]]:
+        """
+        Get all dividend payment records.
+
+        Returns:
+            list: List of dividend payment dicts.
+        """
+        self.cursor.execute('''
+            SELECT s.stockname, d.payment_date, d.amount
+            FROM dividend_payments d
+            JOIN stock_name_ticker_names s ON d.ticker_symbol = s.ticker_symbol
+            ORDER BY d.payment_date DESC;
+        ''')
+        rows = self.cursor.fetchall()
+        payments = []
+        for row in rows:
+            payments.append({'stockname': row[0],
+                             'payment_date': datetime.date.fromisoformat(row[1]),
+                             'amount': row[2]})
+        return payments
+
     def add_stockname_ticker(self, stockname: str, ticker_symbol: str, replace_existing: bool) -> None:
         """
         Add or update a stock name and ticker symbol mapping.
