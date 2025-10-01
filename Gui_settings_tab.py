@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Callable, Any
+import webbrowser
 
 import import_account_statements
 import globals
@@ -96,7 +97,7 @@ class SettingsTab:
                                                    text="You can get an API key from https://platform.openai.com/account/api-keys")
         self.label_openai_api_key_info.grid(column=0, row=1, columnspan=2, padx=10, pady=10)
         self.button_openai_website = ttk.Button(self.frame_ai_configuration, text="Open OpenAI Website",
-                                                command=lambda: tools.webbrowser.open(
+                                                command=lambda: webbrowser.open(
                                                     "https://platform.openai.com/account/api-keys"))
         self.button_openai_website.grid(column=3, row=1, padx=10, pady=10)
 
