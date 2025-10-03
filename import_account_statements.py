@@ -232,6 +232,10 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
                                 current_line['price'] = float(tableline[-4].replace('.', '').replace(',', '.'))
                                 del tableline[-4:]
                             current_line['description'] = current_line.get('description', '') + ' '.join(tableline)
+                    case ['Erträge', 'Cash', 'Dividend', 'for', 'ISIN', ISIN, earning, '€', _, '€']:
+                        current_line['type'] = "Dividend"
+                        current_line['description'] = ISIN
+                        current_line['price'] = float(earning.replace('.', '').replace(',', '.'))
                     case [year, *linerest] if year.isdigit() and int(year) > 1900:
                         if 'description' in current_line.keys():
                             current_line['description'] += ' ' + ' '.join(linerest)
