@@ -3,6 +3,7 @@ import datetime
 from typing import Any, Dict, List, Set, Optional
 
 import globals
+
 """
 This file is part of "The Portfolio".
 
@@ -125,7 +126,9 @@ class DbSqlite:
         for row in rows:
             if row[0] not in dataset:
                 dataset[row[0]] = []
-            dataset[row[0]].append({'quantity': row[1], 'invest': row[2], 'date': datetime.date.fromisoformat(row[3]), 'chance': row[4], 'chance_explanation': row[5], 'risk': row[6], 'risk_explanation': row[7]})
+            dataset[row[0]].append(
+                {'quantity': row[1], 'invest': row[2], 'date': datetime.date.fromisoformat(row[3]), 'chance': row[4],
+                 'chance_explanation': row[5], 'risk': row[6], 'risk_explanation': row[7]})
 
         return dataset
 
@@ -145,9 +148,9 @@ class DbSqlite:
             if row[0] not in dataset:
                 dataset[row[0]] = []
             dataset[row[0]].append({'start_date': datetime.date.fromisoformat(row[1]),
-                                   'end_date': datetime.date.fromisoformat(row[2]),
-                                   'sum_buy': row[3],
-                                   'sum_sell': row[4]})
+                                    'end_date': datetime.date.fromisoformat(row[2]),
+                                    'sum_buy': row[3],
+                                    'sum_sell': row[4]})
         return dataset
 
     def get_quantity_of_stock(self, stockname: str) -> Optional[float]:
@@ -186,7 +189,7 @@ class DbSqlite:
         self.cursor.execute('''
             SELECT trade_id FROM active_trades
             WHERE ticker_symbol = ? AND quantity = ? AND invest = ? AND trade_date = ?;'''
-            , (ticker_symbol, quantity, invest, trade_date.isoformat()))
+                            , (ticker_symbol, quantity, invest, trade_date.isoformat()))
         row = self.cursor.fetchone()
         if row:
             return  # duplicate trade, do nothing
@@ -333,6 +336,7 @@ class DbSqlite:
         """
         Find and close trade series where all shares have been sold, moving them to trade history.
         """
+
         def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):
             self.cursor.execute('''update active_trades
                 set is_active_series = 0
@@ -352,8 +356,9 @@ class DbSqlite:
             self.cursor.execute('''
                 INSERT INTO trade_history (ticker_symbol, start_date, end_date, sum_buy, sum_sell)
                 VALUES (?, ?, ?, ?, ?);
-            ''', (self.get_ticker_symbol(stockname), start_date.isoformat(), end_date.isoformat(), total_money_spend, total_money_earned)
-            )
+            ''', (self.get_ticker_symbol(stockname), start_date.isoformat(), end_date.isoformat(), total_money_spend,
+                  total_money_earned)
+                                )
 
         for Stock in self.get_stock_set():
             self.cursor.execute('''
@@ -378,7 +383,8 @@ class DbSqlite:
                     total_money_earnerd -= row[1]
                 if abs(total_quantity) < 0.0001:
                     # all shares sold, move to history
-                    close_trade_series( Stock, total_money_earnerd, total_money_spend, start_date, datetime.date.fromisoformat(row[2]))
+                    close_trade_series(Stock, total_money_earnerd, total_money_spend, start_date,
+                                       datetime.date.fromisoformat(row[2]))
                     total_quantity = 0.0
                     total_money_spend = 0.0
                     total_money_earnerd = 0.0
@@ -404,6 +410,31 @@ class DbSqlite:
                   analysis_result_dict['risk'][1],
                   analysis_result_dict['news']))
         self.connection.commit()
+
+    def get_stock_news(self, ticker_symbol: str, last=3) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest AI stock analysis for a given stock name.
+
+        Args:
+            ticker_symbol (str): The ticker name of the stock.
+            last (int): The number of latest entries to retrieve.
+        Returns:
+            dict or None: The dict, the keywords are the date, the content are the stocknews or None if not found.
+        """
+        if not ticker_symbol:
+            return None
+        self.cursor.execute('''
+            SELECT analysis_date, stock_news
+            FROM ai_stock_analysis
+            WHERE ticker_symbol = ?
+            ORDER BY analysis_date DESC
+            LIMIT ?;
+        ''', (ticker_symbol, last))
+        rows = self.cursor.fetchall()
+        if rows:
+            return {row[0]: row[1] for row in rows}
+        else:
+            return None
 
     def add_diversification_analysis(self, analysis_text: str) -> None:
         """
@@ -435,7 +466,7 @@ class DbSqlite:
         if row:
             return row[0], row[1]
         else:
-            return None , None
+            return None, None
 
     def close(self) -> None:
         """

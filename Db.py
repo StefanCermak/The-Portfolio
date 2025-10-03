@@ -223,6 +223,21 @@ class Db:
         else:
             return None
 
+    def get_stock_news(self, ticker_symbol: str, last=3) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest AI stock analysis result for a given stock name.
+
+        Args:
+            ticker_symbol (str): The ticker name of the stock.
+            last (int): Number of latest analyses to retrieve.
+        Returns:
+            dict or None: The analysis result dict or None if not found.
+        """
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_stock_news(ticker_symbol, last)
+        else:
+            return None
+
     def add_diversification_analysis(self, analysis_text: str) -> None:
         """
         Add or update the diversification analysis text.

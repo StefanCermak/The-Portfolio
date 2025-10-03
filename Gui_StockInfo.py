@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from charset_normalizer.md import lru_cache
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Callable, Any
 import datetime
@@ -9,6 +10,7 @@ import datetime
 import globals
 import stockdata
 import Db
+import tools
 
 """
 This file is part of "The Portfolio".
@@ -330,7 +332,15 @@ class StockInfoTab:
             else:
                 content = f"No current day data available for {ticker_symbol}"
                 
-            
+            stock_info = self.db.get_stock_news(ticker_symbol,3)
+            if stock_info:
+                content += f"\n{'=' * 40}\n\n"
+                content += f"Recent News:\n"
+                # newest first
+                for date, info in stock_info.items():
+                    content += f"{date}:\n"
+                    content += tools.wrap_text_with_preferred_breaks(info, 42) + "\n\n"
+
             self.text_day_data.insert(tk.END, content)
             self.text_day_data.config(state=tk.DISABLED)
             
