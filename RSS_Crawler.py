@@ -20,7 +20,8 @@ RSS_FEEDS_TICKERS = [
     "https://www.diepresse.com/rss/",
     "https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml",
     "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
-    "https://rss.orf.at/news.xml"
+    "https://rss.orf.at/news.xml",
+    "https://www.investing.com/rss/news.rss"
 ]
 
 HTML_CLEARNER_RE = re.compile('<.*?>')

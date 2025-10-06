@@ -11,6 +11,7 @@ import globals
 import stockdata
 import Db
 import tools
+import sektor_report
 
 """
 This file is part of "The Portfolio".
@@ -29,6 +30,71 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>. 
 """
 
+
+def calculate_health(data: dict) -> float:
+    """
+    Berechnet eine Health-Variable basierend auf den Peer-Compare-Werten.
+    Höherer Wert = gesünder.
+    Bewertet: KGV, Spread, Kurslage, Marktkap., Volumen, 52W Hoch/Tief.
+    """
+    # Werte extrahieren
+    try:
+        kgv = data.get("trailingPE") or data.get("forwardPE")
+        spread = None
+        high = data.get("high")
+        low = data.get("low")
+        if high and low:
+            spread = ((float(high) - float(low)) / ((float(high) + float(low)) / 2)) * 100
+        kurs = data.get("close")
+        fiftyTwoWeekHigh = data.get("fiftyTwoWeekHigh")
+        fiftyTwoWeekLow = data.get("fiftyTwoWeekLow")
+        marketCap = data.get("marketCap")
+        volume = data.get("volume")
+        # Health Score: 0-100
+        score = 50
+        # KGV: ideal 10-25, zu hoch/zu niedrig schlecht
+        if kgv is not None:
+            if 10 <= kgv <= 25:
+                score += 15
+            elif kgv < 10:
+                score += 5
+            elif kgv > 40:
+                score -= 10
+        # Spread: kleiner besser
+        if spread is not None:
+            if spread < 2:
+                score += 10
+            elif spread < 5:
+                score += 5
+            elif spread > 10:
+                score -= 10
+        # Kurslage: nah am 52W Hoch = teuer, nah am Tief = riskant, mittig = gut
+        if kurs and fiftyTwoWeekHigh and fiftyTwoWeekLow:
+            try:
+                rel = (kurs - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow)
+                if 0.3 < rel < 0.7:
+                    score += 10
+                elif rel < 0.2 or rel > 0.8:
+                    score -= 10
+            except Exception:
+                pass
+        # Marktkap.: groß = stabiler
+        if marketCap is not None:
+            if marketCap > 10_000_000_000:
+                score += 5
+            elif marketCap < 500_000_000:
+                score -= 5
+        # Volumen: hoch = liquide
+        if volume is not None:
+            if volume > 1_000_000:
+                score += 5
+            elif volume < 50_000:
+                score -= 5
+        # Score begrenzen
+        score = max(0, min(100, score))
+        return score
+    except Exception:
+        return 0
 
 class StockInfoTab:
     """
@@ -95,7 +161,7 @@ class StockInfoTab:
         self.frame_peer_compare.grid(column=1, row=2, padx=10, pady=5, sticky="nsew")
         
         # Initialize chart
-        self.fig, self.ax = plt.subplots(1, 1, figsize=(6, 4), dpi=80)
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(4, 3), dpi=80)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame_chart)
         self.canvas.get_tk_widget().grid(column=0, row=0, padx=5, pady=5, sticky="nsew")
         self.frame_chart.grid_columnconfigure(0, weight=1)
@@ -115,17 +181,157 @@ class StockInfoTab:
         self.frame_health_check.grid_columnconfigure(0, weight=1)
         self.frame_health_check.grid_rowconfigure(0, weight=1)
         
-        # Peer compare text widget (placeholder)
-        self.text_peer_compare = tk.Text(self.frame_peer_compare, width=40, height=15, wrap="word")
-        self.text_peer_compare.grid(column=0, row=0, padx=5, pady=5, sticky="nsew")
-        self.text_peer_compare.insert(tk.END, "Peer Compare\n\n(Feature coming soon)")
-        self.text_peer_compare.config(state=tk.DISABLED)
+        # Peer compare Treeview (statt Text)
+        self.peer_compare_tree = ttk.Treeview(
+            self.frame_peer_compare,
+            columns=("SockName", "Spread", "Volume", "Change", "52W Hoch", "Kurs", "52W Tief", "KGV", "Marktkap.", "Health"),
+            show="headings",
+            height=15
+        )
+        self.peer_compare_tree.heading("SockName", text="SockName")
+        self.peer_compare_tree.heading("Spread", text="Spread %")
+        self.peer_compare_tree.heading("Volume", text="Volumen")
+        self.peer_compare_tree.heading("Change", text="Change %")
+        self.peer_compare_tree.heading("52W Hoch", text="52W Hoch")
+        self.peer_compare_tree.heading("Kurs", text="Kurs")
+        self.peer_compare_tree.heading("52W Tief", text="52W Tief")
+        self.peer_compare_tree.heading("KGV", text="KGV")
+        self.peer_compare_tree.heading("Marktkap.", text="Marktkap.")
+        self.peer_compare_tree.heading("Health", text="Health")
+        self.peer_compare_tree.column("SockName", width=200, anchor="w")
+        self.peer_compare_tree.column("Spread", width=60, anchor="e")
+        self.peer_compare_tree.column("Volume", width=60, anchor="e")
+        self.peer_compare_tree.column("Change", width=60, anchor="e")
+        self.peer_compare_tree.column("52W Hoch", width=80, anchor="e")
+        self.peer_compare_tree.column("Kurs", width=80, anchor="e")
+        self.peer_compare_tree.column("52W Tief", width=80, anchor="e")
+        self.peer_compare_tree.column("KGV", width=60, anchor="e")
+        self.peer_compare_tree.column("Marktkap.", width=90, anchor="e")
+        self.peer_compare_tree.column("Health", width=60, anchor="e")
+        self.peer_compare_tree.grid(column=0, row=0, padx=5, pady=5, sticky="nsew")
         self.frame_peer_compare.grid_columnconfigure(0, weight=1)
         self.frame_peer_compare.grid_rowconfigure(0, weight=1)
-        
+
+        # Treeview Tags für Formatierung
+        self.peer_compare_tree.tag_configure("active", font=("TkDefaultFont", 10, "bold"))
+        self.peer_compare_tree.tag_configure("portfolio", font=("TkDefaultFont", 10), background="#e6f7ff")
+        self.peer_compare_tree.tag_configure("peer", font=("TkDefaultFont", 10), background="#ffffff")
+
+        # ToolTip für Peer Compare
+        self.peer_compare_tooltip = tools.ToolTip(self.peer_compare_tree)
+        self.peer_compare_tree.bind("<Motion>", self.on_peer_compare_motion)
+        self.peer_compare_tree.bind("<Leave>", lambda e: self.peer_compare_tooltip.hidetip())
+
         # Initialize with current data
         self.update_tab_stock_info()
-    
+
+    def update_peer_compare(self) -> None:
+        """
+        Aktualisiert die Peer-Compare-Tabelle mit Sektor-Daten.
+        """
+        # Treeview leeren
+        for row in self.peer_compare_tree.get_children():
+            self.peer_compare_tree.delete(row)
+
+        stock_set_name = self.db.get_stock_set()
+        stock_set_ticker = [self.db.get_ticker_symbol(name) for name in stock_set_name if self.db.get_ticker_symbol(name)]
+        sektor_report_data = sektor_report.sektor_report(stock_set_ticker)
+
+        stock_name = self.combobox_stock_selection.get()
+        stock_ticker = self.db.get_ticker_symbol(stock_name)
+        _, current_stock_sector = stockdata.get_industry_and_sector(stock_ticker)
+
+        # Frame-Titel dynamisch setzen
+        if current_stock_sector:
+            self.frame_peer_compare.config(text=f"Peer Compare {current_stock_sector}")
+        else:
+            self.frame_peer_compare.config(text="Peer Compare")
+
+        if not current_stock_sector or current_stock_sector not in sektor_report_data.keys():
+            # Keine Daten für diesen Sektor
+            return
+
+        rows = []
+        # Für jeden Peer im Sektor: Zeile einfügen
+        for ticker, data in sektor_report_data[current_stock_sector].items():
+            if not data:
+                continue
+            high = data.get("high")
+            low = data.get("low")
+            volume = data.get("volume")
+            change = data.get("change_percent")
+            fiftyTwoWeekHigh = data.get("fiftyTwoWeekHigh")
+            fiftyTwoWeekLow = data.get("fiftyTwoWeekLow")
+            trailingPE = data.get("trailingPE")
+            forwardPE = data.get("forwardPE")
+            marketCap = data.get("marketCap")
+            kurs = data.get("close")  # aktueller Kurs
+            # Spread-Berechnung
+            try:
+                spread = ((float(high) - float(low)) / ((float(high) + float(low)) / 2)) * 100 if high and low else None
+            except Exception:
+                spread = None
+            spread_str = f"{spread:.2f}%" if spread is not None else "N/A"
+            volume_str = self.format_number(volume)
+            change_str = self.format_percent(change)
+            fiftyTwoWeekHigh_str = self.format_value(fiftyTwoWeekHigh)
+            kurs_str = self.format_value(kurs)
+            fiftyTwoWeekLow_str = self.format_value(fiftyTwoWeekLow)
+            kgv_str = self.format_value(trailingPE) if trailingPE is not None else self.format_value(forwardPE)
+            marketCap_str = self.format_number(marketCap)
+            StockName = self.db.get_stockname(ticker)
+
+            if not StockName or StockName is None:
+                StockName = stockdata.get_stock_company_name(ticker)
+                if not StockName or StockName is None:
+                    StockName = ticker
+
+            # Tag bestimmen
+            tags = []
+            if ticker == stock_ticker:
+                tags.append("active")
+            if ticker in stock_set_ticker:
+                tags.append("portfolio")
+            else:
+                tags.append("peer")
+            # Health berechnen
+            health = calculate_health(data)
+            health_str = f"{health:.1f}"
+            # Zeile sammeln
+            rows.append({
+                "values": (
+                    StockName,
+                    spread_str,
+                    volume_str,
+                    change_str,
+                    fiftyTwoWeekHigh_str,
+                    kurs_str,
+                    fiftyTwoWeekLow_str,
+                    kgv_str,
+                    marketCap_str,
+                    health_str
+                ),
+                "tags": tags,
+                "health": health
+            })
+        # Sortieren nach Health absteigend
+        rows.sort(key=lambda r: r["health"], reverse=True)
+        # Einfügen
+        for row in rows:
+            self.peer_compare_tree.insert(
+                "",
+                "end",
+                values=row["values"],
+                tags=row["tags"]
+            )
+
+        # Nachträglich die aktive Zeile selektieren (optional, falls gewünscht)
+        # for row in self.peer_compare_tree.get_children():
+        #     vals = self.peer_compare_tree.item(row, "values")
+        #     if vals and self.db.get_ticker_symbol(vals[0]) == stock_ticker:
+        #         self.peer_compare_tree.selection_set(row)
+        #         break
+
     def update_tab_stock_info(self) -> None:
         """
         Updates the stock info tab with current owned stocks and refreshes data.
@@ -149,6 +355,7 @@ class StockInfoTab:
         # Update display if a stock is selected
         if self.combobox_stock_selection.get():
             self.on_stock_selected(None)
+
     
     def on_stock_selected(self, event) -> None:
         """
@@ -173,6 +380,8 @@ class StockInfoTab:
         
         # Update day data
         self.update_day_data(ticker_symbol)
+
+        self.update_peer_compare()
     
     def on_timespan_selected(self, event) -> None:
         """
@@ -227,11 +436,15 @@ class StockInfoTab:
                 prices = data['prices']
                 
                 self.ax.plot(dates, prices, linewidth=2, color='blue')
-                self.ax.set_title(f"{ticker_symbol} - {title_suffix}")
-                self.ax.set_xlabel("Date")
-                self.ax.set_ylabel("Price")
+                self.ax.set_title(f"{ticker_symbol} - {title_suffix}", fontsize=9)
+                self.ax.set_xlabel("Date", fontsize=7)
+                self.ax.set_ylabel("Price", fontsize=7)
                 self.ax.grid(True, alpha=0.3)
                 
+                # Achsenwerte kleiner darstellen
+                self.ax.tick_params(axis='x', labelsize=7)
+                self.ax.tick_params(axis='y', labelsize=7)
+
                 # Custom date formatting based on timespan
                 self._format_time_axis(timespan)
                 
@@ -241,8 +454,11 @@ class StockInfoTab:
                 self.ax.text(0.5, 0.5, f'No data available for {ticker_symbol}', 
                            horizontalalignment='center', verticalalignment='center', 
                            transform=self.ax.transAxes, fontsize=12)
-                self.ax.set_title(f"{ticker_symbol} - No Data")
-            
+                self.ax.set_title(f"{ticker_symbol} - No Data", fontsize=9)
+                self.ax.set_xlabel("Date", fontsize=7)
+                self.ax.set_ylabel("Price", fontsize=7)
+                self.ax.tick_params(axis='x', labelsize=7)
+                self.ax.tick_params(axis='y', labelsize=7)
             self.fig.tight_layout()
             self.canvas.draw()
             
@@ -252,7 +468,11 @@ class StockInfoTab:
             self.ax.text(0.5, 0.5, f'Error loading data for {ticker_symbol}', 
                        horizontalalignment='center', verticalalignment='center', 
                        transform=self.ax.transAxes, fontsize=12)
-            self.ax.set_title(f"{ticker_symbol} - Error")
+            self.ax.set_title(f"{ticker_symbol} - Error", fontsize=9)
+            self.ax.set_xlabel("Date", fontsize=7)
+            self.ax.set_ylabel("Price", fontsize=7)
+            self.ax.tick_params(axis='x', labelsize=7)
+            self.ax.tick_params(axis='y', labelsize=7)
             self.canvas.draw()
     
     def _format_time_axis(self, timespan: str) -> None:
@@ -339,7 +559,7 @@ class StockInfoTab:
                 # newest first
                 for date, info in stock_info.items():
                     content += f"{date}:\n"
-                    content += tools.wrap_text_with_preferred_breaks(info, 42) + "\n\n"
+                    content += tools.wrap_text_with_preferred_breaks(info, 80) + "\n\n"
 
             self.text_day_data.insert(tk.END, content)
             self.text_day_data.config(state=tk.DISABLED)
@@ -401,3 +621,36 @@ class StockInfoTab:
             return f"{float(value):.2f}%"
         except (ValueError, TypeError):
             return "N/A"
+
+    def on_peer_compare_motion(self, event: tk.Event) -> None:
+        """
+        Zeigt Tooltips mit Spaltenbeschreibung für Peer Compare Treeview.
+        """
+        region = self.peer_compare_tree.identify("region", event.x, event.y)
+        if region != "cell":
+            self.peer_compare_tooltip.hidetip()
+            return
+        col = self.peer_compare_tree.identify_column(event.x)
+        col_idx = int(col.replace("#", "")) - 1
+        col_names = [
+            "SockName", "Spread", "Volume", "Change", "52W Hoch", "Kurs", "52W Tief", "KGV", "Marktkap.", "Health"
+        ]
+        col_tooltips = {
+            "SockName": "Name der Aktie oder des Peer-Unternehmens.",
+            "Spread": "Tages-Spread:\nDifferenz zwischen Hoch und Tief als Prozentwert.\nZeigt Volatilität.",
+            "Volume": "Handelsvolumen des Tages.\nHohe Werte bedeuten hohe Liquidität.",
+            "Change": "Tagesveränderung in Prozent.\nZeigt die Kursbewegung des Tages.",
+            "52W Hoch": "Das höchste Kursniveau\nder letzten 52 Wochen.",
+            "Kurs": "Aktueller Kurs der Aktie.",
+            "52W Tief": "Das niedrigste Kursniveau\nder letzten 52 Wochen.",
+            "KGV": "Kurs-Gewinn-Verhältnis\n(trailing/forward PE).\nBewertungskennzahl.",
+            "Marktkap.": "Marktkapitalisierung:\nGesamtwert des Unternehmens am Markt.",
+            "Health": "Gesundheits-Score:\nBewertet Stabilität,\nBewertung und Liquidität."
+        }
+        if 0 <= col_idx < len(col_names):
+            tip_text = col_tooltips.get(col_names[col_idx], "")
+            x = self.peer_compare_tree.winfo_rootx() + event.x + 20
+            y = self.peer_compare_tree.winfo_rooty() + event.y + 10
+            self.peer_compare_tooltip.showtip(tip_text, x, y)
+        else:
+            self.peer_compare_tooltip.hidetip()

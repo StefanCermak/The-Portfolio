@@ -5,6 +5,8 @@ import yahooquery
 from datetime import datetime, timedelta
 import pandas as pd
 
+# doctest: +ELLIPSIS
+
 """
 This file is part of "The Portfolio".
 
@@ -40,8 +42,10 @@ def get_currency_to_eur_rate(from_currency: str = "USD") -> float | None:
         float: The current exchange rate (1 unit of from_currency in EUR), or None on error.
 
     Example:
-        >>> get_currency_to_eur_rate("USD")
-        0.92
+        >>> get_currency_to_eur_rate("USD") > 0.5
+        True
+        >>> get_currency_to_eur_rate("USD") < 2.0
+        True
     """
     try:
         fx = yahooquery.Ticker(f'EUR{from_currency}=X')
@@ -79,10 +83,12 @@ def get_stock_price(ticker_symbol: str, extended: bool = False) -> tuple:
                 All values may be None if unavailable.
 
     Example:
-        >>> get_stock_price("AAPL")
-        (189.98, 'USD', 0.92)
-        >>> get_stock_price("AAPL", extended=True)
-        (189.98, 'USD', 0.92, 0.012, 2980000000000, 199.62, 124.17)
+        >>> (current_price, currency, rate) = get_stock_price("AAPL")
+        >>> 50 < current_price < 5000 and currency == 'USD' and 0.5 < rate < 2.0
+        True
+        >>> (current_price, currency, rate, regularMarketChangePercent, marketCap, fiftyTwoWeekHigh, fiftyTwoWeekLow) = get_stock_price("AAPL", extended=True)
+        >>> 50 < current_price < 5000 and currency == 'USD' and 0.5 < rate < 2.0
+        True
     """
     try:
         ticker = yf.Ticker(ticker_symbol)
@@ -111,7 +117,7 @@ def get_stock_price(ticker_symbol: str, extended: bool = False) -> tuple:
             return None, None, None
 
 @persistent_cache("get_industry_and_sector.json")
-def get_industry_and_sector(ticker_symbol: str) -> tuple[str | None, str | None]:
+def get_industry_and_sector(ticker_symbol: str) -> list[str | None]:
     """
     Fetch the industry and sector for a given ticker symbol using yfinance.
 
@@ -125,17 +131,52 @@ def get_industry_and_sector(ticker_symbol: str) -> tuple[str | None, str | None]
 
     Example:
         >>> get_industry_and_sector("AAPL")
-        ('Consumer Electronics', 'Technology')
+        ['Consumer Electronics', 'Technology']
     """
     try:
         ticker = yf.Ticker(ticker_symbol)
         stock_info = ticker.info
-        #print(stock_info)
         industry = stock_info.get('industry', None)
         sector = stock_info.get('sector', None)
-        return industry, sector
+        return [industry, sector]
     except Exception as _:
-        return None, None
+        return [None, None]
+
+
+@persistent_timed_cache("get_peers_for_sector.json", ttl_seconds=86400)  # 24 hours cache
+def get_peers_for_sector(sector: str, exclude: list[str] = [], count: int = 3) -> list[str]:
+    """
+    Fetch peer ticker symbols for a given sector using yahooquery.
+
+    Args:
+        sector (str): The sector name (e.g., 'Technology').
+        exclude (list[str], optional): List of ticker symbols to exclude from the results.
+        count (int, optional): Number of peer ticker symbols to return (default is 3).
+    Returns:
+        list[str]: List of peer ticker symbols.
+    Example:
+        >>> peers = get_peers_for_sector("Technology", exclude=["AAPL"], count=3)
+        >>> isinstance(peers, list) and len(peers) <= 3
+        True
+        >>> "AAPL" not in peers
+        True
+
+    """
+    try:
+        # Suche nach Unternehmen im angegebenen Sektor
+        search = yahooquery.search(sector)
+        peers = []
+        if search and 'quotes' in search and len(search['quotes']) > 0:
+            for quote in search['quotes']:
+                symbol = quote.get('symbol', None)
+                quote_sector = quote.get('sector', None)
+                if symbol and quote_sector and quote_sector.lower() == sector.lower() and symbol not in exclude:
+                    peers.append(symbol)
+                if len(peers) >= count:
+                    break
+        return peers
+    except Exception as _:
+        return []
 
 @persistent_cache("get_ticker_symbols_from_name.json")
 def get_ticker_symbols_from_name(company_name: str) -> list[str] | None:
@@ -149,8 +190,9 @@ def get_ticker_symbols_from_name(company_name: str) -> list[str] | None:
         list[str] or None: List of ticker symbols if found, otherwise None.
 
     Example:
-        >>> get_ticker_symbols_from_name("Apple Inc.")
-        ['AAPL', 'APC.F', ...]
+        >>> symbols = get_ticker_symbols_from_name("Apple Inc.")
+        >>> 'AAPL' in symbols and 'APC.F' in symbols
+        True
     """
     try:
         search = yahooquery.search(company_name)
@@ -188,6 +230,27 @@ def get_ticker_symbol_name_from_isin(isin: str) -> str | None:
     except Exception as _:
         return None
 
+@persistent_cache("get_stock_company_name.json")
+def get_stock_company_name(ticker_symbol: str) -> str | None:
+    """
+    Fetch the company name for a given ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., 'AAPL' for Apple Inc.).
+
+    Returns:
+        str or None: The company name if found, otherwise None.
+
+    Example:
+        >>> get_stock_company_name("AAPL")
+        'Apple Inc.'
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        stock_info = ticker.info
+        return stock_info.get('longName', None)
+    except Exception as _:
+        return None
 
 @timed_cache(ttl_seconds=300)  # 5 minutes cache for day data
 def get_stock_day_data(ticker_symbol: str) -> dict | None:
@@ -214,7 +277,10 @@ def get_stock_day_data(ticker_symbol: str) -> dict | None:
             'volume': info.get('regularMarketVolume'),
             'change_percent': info.get('regularMarketChangePercent'),
             'dividend_yield': info.get('dividendYield'),
-            'currency': info.get('currency')
+            'currency': info.get('currency'),
+            'trailingPE': info.get('trailingPE'),
+            'forwardPE': info.get('forwardPE'),
+            'marketCap': info.get('marketCap'),
         }
         div_info = get_dividend_info(ticker_symbol)
         if div_info:

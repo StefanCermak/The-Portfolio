@@ -37,7 +37,7 @@ def get_Report(tickers):
         info = entry.get_artictle_snippet(filter_words, 75, 75) if entry.article else entry.summary
         news_list.append({'title': entry.title, 'info': info})
     for (ticker, name) in tickers:
-        duckduckgo_result = WWW_Crawler.WWW_Crawler(name, 2, 1)
+        duckduckgo_result = WWW_Crawler.WWW_Crawler(name, 3, 2)
         for result in duckduckgo_result:
             news_list.append({'title': result[0], 'info': result[1]})
 
@@ -94,7 +94,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
         competition in the market,        
     The indicators should be a number between 0 and 100, where 0 means no chance/risk and 100 means very high chance/risk.
     Provide the tables in csv format, the ticker name, as well as the Verbal explanation shall be within quotes ("), the risk number and chance number shall be integer numbers without quotes.
-    The 3rd table shall provide a small summary of all news provided for each stock, the summary shall be within quotes (") and max 15 sentences.
+    The 3rd table shall provide a small summary of all news provided for each stock, but no stock analysis, the summary shall be within quotes (") and max 15 sentences.
     Only provide the tables, no additional text.
     Make sure the csv format is correct, so that it can be easily imported into a spreadsheet program.
     If you do not have enough information to provide a chance or risk indicator, use 0 for chance and 100 for risk, and explain in the verbal explanation that there was not enough information.
@@ -115,7 +115,6 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
     --------------------------------------------------------------------------------
 {news_section}
     """
-    print(prompt)
     logging.info("Prompt for AI risk and chance analysis:\n" + prompt)
     client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
     response = client.chat.completions.create(
@@ -129,7 +128,6 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
         n=1,
         stop=None,
     )
-    print(response.choices[0].message.content)
     logging.info('AI RAW RESPONSE:\n' + "\n    ".join(response.choices[0].message.content.splitlines()).strip())
     total_cost_usd = open_ai_bill(response)
     logging.info('AI RESPONSE COST: $' + f"{total_cost_usd:.6f}")
