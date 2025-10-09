@@ -246,7 +246,7 @@ class ActiveTradesTab:
             self.button_ai_analysis.config(text="🧠stock analysis")
 
         stock_names = self.db.get_current_stock_set()
-        ticker_symbols = [(ticker, name) for name in stock_names.keys() if
+        ticker_symbols = [(ticker, name.split(' ')[0]) for name in stock_names.keys() if
                           (ticker := self.db.get_ticker_symbol(name)) is not None]
         threading.Thread(target=run_ai_analysis_thread, args=(ticker_symbols,), daemon=True).start()
 

@@ -12,6 +12,7 @@ import globals
 def get_Report(tickers):
     logging.basicConfig(filename='ai_risk_and_chance_analysis.log', level=logging.INFO,
                         format='%(asctime)s %(message)s')
+    logging.info(f"Starting AI risk and chance analysis for tickers: {tickers}")
 
     stock_pile = {}
     filter_words = []
@@ -33,6 +34,7 @@ def get_Report(tickers):
         filter_words.append(name)
 
     crawler = RSS_Crawler.RssCrawler()
+
     for entry in crawler.filtered_entries(filter_words):
         info = entry.get_artictle_snippet(filter_words, 75, 75) if entry.article else entry.summary
         news_list.append({'title': entry.title, 'info': info})
@@ -40,6 +42,7 @@ def get_Report(tickers):
         duckduckgo_result = WWW_Crawler.WWW_Crawler(name, 3, 2)
         for result in duckduckgo_result:
             news_list.append({'title': result[0], 'info': result[1]})
+
 
     analyst_dict = _do_risc_anc_chance_analysis(stock_pile, news_list)
 
@@ -194,3 +197,15 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
                 result_dict[ticker] = {'chance': (None, None), 'risk': (None, None), 'news': summary}
 
     return result_dict
+
+if __name__ == "__main__":
+    tickers = [("AAPL", "Apple Inc."), ("RHM.DE", "Rheinmetall AG")]
+    report = get_Report(tickers)
+    for ticker, analysis in report.items():
+        print(f"Ticker: {ticker}")
+        chance, chance_exp = analysis['chance']
+        risk, risk_exp = analysis['risk']
+        news_summary = analysis['news']
+        print(f"  Chance: {chance} - {chance_exp}")
+        print(f"  Risk: {risk} - {risk_exp}")
+        print(f"  News Summary: {news_summary}\n")

@@ -5,6 +5,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Callable, Any
 import re
 import webbrowser
+import datetime
 
 import globals
 import stockdata
@@ -66,7 +67,15 @@ class StatisticsTab:
         self.label_history_profit_per_year = ttk.Label(self.frame_history, text=f"Average profit per Year: # EUR (# %)")
         self.label_history_profit_per_year.grid(column=0, row=4, padx=10, pady=10, sticky="w")
 
-        # Dividends statistics - not implemented yet
+        # Dividends statistics
+        self.label_dividends_count = ttk.Label(self.frame_dividends, text="Payments: #")
+        self.label_dividends_count.grid(column=0, row=0, padx=10, pady=10, sticky="w")
+        self.label_dividends_sum = ttk.Label(self.frame_dividends, text="Total Dividends: # EUR")
+        self.label_dividends_sum.grid(column=0, row=1, padx=10, pady=10, sticky="w")
+        self.label_dividends_this_year = ttk.Label(self.frame_dividends, text="Dividends This Year: # EUR")
+        self.label_dividends_this_year.grid(column=0, row=2, padx=10, pady=10, sticky="w")
+        self.label_dividends_avg_this_year = ttk.Label(self.frame_dividends, text="Relative Dividends this Year: # %")
+        self.label_dividends_avg_this_year.grid(column=0, row=3, padx=10, pady=10, sticky="w")
 
         # Pie chart for portfolio distribution
         # one subplot for industry, one for sector
@@ -225,7 +234,20 @@ class StatisticsTab:
         self.label_history_profit_per_year.config(
             text=f"Average profit per Year: {(total_profit / total_days * 365):.2f} {globals.CURRENCY} ({avg_profit_per_year:.2f} %)")
         # Dividends Statistics
-        # Not implemented yet
+        payments = self.db.get_dividend_payments()
+        count = len(payments)
+        total = sum(p['amount'] for p in payments)
+        current_year = datetime.datetime.now().year
+        payments_this_year = [p for p in payments if p['payment_date'].year == current_year]
+        total_this_year = sum(p['amount'] for p in payments_this_year)
+
+        profit_percent_this_year = total_this_year / total_current_value * 100 if total_current_value != 0 else 0.0
+
+        self.label_dividends_count.config(text=f"Payments: {count}")
+        self.label_dividends_sum.config(text=f"Total Dividends: {total:.2f} {globals.CURRENCY}")
+        self.label_dividends_this_year.config(text=f"Dividends This Year: {total_this_year:.2f} {globals.CURRENCY}")
+        self.label_dividends_avg_this_year.config(text=f"Relative Dividends this Year: {profit_percent_this_year:.2f} %")
+
 
         # Pie Chart
         sectors_and_industries = self._get_sectors_and_industries_invest()
