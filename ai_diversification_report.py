@@ -1,6 +1,5 @@
 import datetime
 import logging
-from openai import OpenAI
 
 import RSS_Crawler
 import globals
@@ -83,7 +82,7 @@ def get_Report(analyst_dict):
     logging.basicConfig(filename='ai_analysis.log', level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info('USER  PROMPT:' + prompt)
 
-    client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
+    client = globals.get_openai_client()
     response = client.chat.completions.create(
         model="gpt-5-mini",
         messages=[

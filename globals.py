@@ -69,3 +69,26 @@ def save_user_config():
 
 
 USER_CONFIG = load_user_config()
+
+
+def get_openai_api_key():
+    config_key = USER_CONFIG.get("OPEN_AI_API_KEY", "").strip()
+    legacy_config_key = USER_CONFIG.get("OPENAI_API_KEY", "").strip()
+    environment_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+    api_key = config_key or legacy_config_key or environment_key
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
+    return api_key
+
+
+def get_openai_client():
+    from openai import OpenAI
+
+    api_key = get_openai_api_key()
+    if not api_key:
+        raise ValueError(
+            "No OpenAI API key configured. Set `OPEN_AI_API_KEY` in `config.json` "
+            "or the `OPENAI_API_KEY` environment variable."
+        )
+    return OpenAI(api_key=api_key)

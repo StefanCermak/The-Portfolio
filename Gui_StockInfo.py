@@ -6,6 +6,8 @@ from charset_normalizer.md import lru_cache
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Callable, Any
 import datetime
+import threading
+import ai_health_check
 
 import globals
 import stockdata
@@ -222,6 +224,10 @@ class StockInfoTab:
         self.peer_compare_tree.bind("<Motion>", self.on_peer_compare_motion)
         self.peer_compare_tree.bind("<Leave>", lambda e: self.peer_compare_tooltip.hidetip())
 
+        # Health Check Button ergänzen
+        self.button_health_check = ttk.Button(self.frame_select, text="🧠Health Check", command=self.on_health_check_clicked)
+        self.button_health_check.grid(column=4, row=0, padx=10, pady=5, sticky="w")
+
         # Initialize with current data
         self.update_tab_stock_info()
 
@@ -400,9 +406,6 @@ class StockInfoTab:
     def update_chart(self, ticker_symbol: str) -> None:
         """
         Update the matplotlib chart with stock data based on selected timespan.
-        
-        Args:
-            ticker_symbol: The ticker symbol to fetch data for
         """
         try:
             # Get selected timespan
@@ -459,7 +462,6 @@ class StockInfoTab:
                 self.ax.set_ylabel("Price", fontsize=7)
                 self.ax.tick_params(axis='x', labelsize=7)
                 self.ax.tick_params(axis='y', labelsize=7)
-            self.fig.tight_layout()
             self.canvas.draw()
             
         except Exception as e:
@@ -654,3 +656,38 @@ class StockInfoTab:
             self.peer_compare_tooltip.showtip(tip_text, x, y)
         else:
             self.peer_compare_tooltip.hidetip()
+
+    def on_health_check_clicked(self):
+        """
+        Startet einen Thread für den Health Check Report und zeigt das Ergebnis im Health Check Feld.
+        """
+        selected_stock = self.combobox_stock_selection.get()
+        if not selected_stock:
+            return
+        ticker = self.db.get_ticker_symbol(selected_stock)
+        # News holen (wie in update_day_data)
+        news_dict = self.db.get_stock_news(ticker, 3)
+        news = ""
+        if news_dict:
+            for date, info in news_dict.items():
+                news += f"{date}:\n{info}\n\n"
+        def run_health_check():
+            try:
+                self.button_health_check.config(state=tk.DISABLED, text="🧠💭💭💭")
+                report = ai_health_check.get_Health_Report(ticker, news)
+                def update_gui():
+                    self.text_health_check.config(state=tk.NORMAL)
+                    self.text_health_check.delete(1.0, tk.END)
+                    self.text_health_check.insert(tk.END, report)
+                    self.text_health_check.config(state=tk.DISABLED)
+                    self.button_health_check.config(state=tk.NORMAL, text="🧠Health Check")
+                self.text_health_check.after(0, update_gui)
+            except Exception as e:
+                def show_error(e=e):
+                    self.text_health_check.config(state=tk.NORMAL)
+                    self.text_health_check.delete(1.0, tk.END)
+                    self.text_health_check.insert(tk.END, f"Fehler beim Health Check: {e}")
+                    self.text_health_check.config(state=tk.DISABLED)
+                    self.button_health_check.config(state=tk.NORMAL, text="🧠health check")
+                self.text_health_check.after(0, show_error)
+        threading.Thread(target=run_health_check, daemon=True).start()

@@ -1,5 +1,4 @@
 import logging
-from openai import OpenAI
 
 
 import stockdata
@@ -7,6 +6,9 @@ import RSS_Crawler
 import WWW_Crawler
 import tools
 import globals
+
+"""  This 
+"""
 
 
 def get_Report(tickers):
@@ -119,7 +121,7 @@ def _do_risc_anc_chance_analysis(stock_pile, web_info):
 {news_section}
     """
     logging.info("Prompt for AI risk and chance analysis:\n" + prompt)
-    client = OpenAI(api_key=globals.USER_CONFIG["OPEN_AI_API_KEY"])
+    client = globals.get_openai_client()
     response = client.chat.completions.create(
         model=globals.OPENAI_MODEL,
         messages=[

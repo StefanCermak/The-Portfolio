@@ -28,6 +28,43 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """ Module for importing account statements from files into the database. """
 
 
+TRADE_REPUBLIC_MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
+                         "Okt.", "Nov.", "Dez."]
+TRADE_REPUBLIC_DIVIDEND_REGEX = re.compile(
+    r'^(?:(?P<day>\d{1,2})\s+)?'
+    r'(?:(?P<month>Jan\.|Feb\.|März|Apr\.|Mai|Juni|Juli|Aug\.|Sept\.|Okt\.|Nov\.|Dez\.)\s+)?'
+    r'(?:(?P<year>\d{4})\s+)?'
+    r'Ertr(?:ag|äge)\s+Cash\s+Dividend\s+for\s+ISIN\s+(?P<isin>[A-Z0-9]+)\s+'
+    r'(?P<amount>[\d.,]+)\s+€(?:\s+[\d.,]+\s+€)?$'
+)
+
+
+def _parse_euro_amount(value: str) -> float:
+    return float(value.replace('.', '').replace(',', '.'))
+
+
+def _get_trade_republic_month_index(month: str) -> int:
+    return TRADE_REPUBLIC_MONTHS.index(month) + 1
+
+
+def _extract_trade_republic_dividend(line: str, current_line: dict) -> bool:
+    match = TRADE_REPUBLIC_DIVIDEND_REGEX.match(line.strip())
+    if not match:
+        return False
+
+    if match.group('day'):
+        current_line['day'] = int(match.group('day'))
+    if match.group('month'):
+        current_line['month'] = _get_trade_republic_month_index(match.group('month'))
+    if match.group('year'):
+        current_line['year'] = int(match.group('year'))
+
+    current_line['type'] = 'Dividend'
+    current_line['description'] = match.group('isin')
+    current_line['price'] = _parse_euro_amount(match.group('amount'))
+    return True
+
+
 def from_folder(dir_path, db: Db.Db):
     """
     Import account statements from a files into the database.
@@ -173,42 +210,30 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
             if in_table:
                 if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
                     continue
+                if _extract_trade_republic_dividend(line, current_line):
+                    if all(key in current_line for key in ('day', 'month', 'year')):
+                        finish_line(transactions, current_line)
+                        current_line = {}
+                    continue
                 if log:
                     print("Processing line:", line)
                 match line.split():
                     case [day] if day.isdigit() and 1 <= int(day) <= 31:
                         current_line['day'] = int(day)
-                    case [Month, "Handel", price, "€", _, "€"] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
-                                                                                 "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
-                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
-                    case [Month, "Handel", dir, "trade", *description, price, '€', _, '€'] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
-                                                            "Sept.", "Okt.", "Nov.", "Dez."] and dir in ['Buy', 'Sell']:
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
+                    case [Month, "Handel", price, "€", _, "€"] if Month in TRADE_REPUBLIC_MONTHS:
+                        current_line['month'] = _get_trade_republic_month_index(Month)
+                        current_line['price'] = _parse_euro_amount(price)
+                    case [Month, "Handel", dir, "trade", *description, price, '€', _, '€'] if Month in TRADE_REPUBLIC_MONTHS and dir in ['Buy', 'Sell']:
+                        current_line['month'] = _get_trade_republic_month_index(Month)
                         current_line['type'] = dir
                         current_line['description'] = ' '.join(description)
-                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
-                        #finish_line(transactions, current_line)
-                    case [Month, "Erträge", "Cash", "Dividend", "for", "ISIN", ISIN, earning, "€", _, "€"] if Month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
-                                                            "Sept.", "Okt.", "Nov.", "Dez."]:
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                                                 "Okt.", "Nov.", "Dez."].index(Month) + 1
-                        current_line['type'] = "Dividend"
-                        current_line['description'] = ISIN
-                        current_line['price'] = float(earning.replace('.', '').replace(',', '.'))
-
-                    case [day, month] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.",
-                                                   "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['price'] = _parse_euro_amount(price)
+                    case [day, month] if month in TRADE_REPUBLIC_MONTHS:
                         current_line['day'] = int(day)
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                                                 "Okt.", "Nov.", "Dez."].index(month) + 1
-                    case [day, month, *description] if month in ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
-                                                                 "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]:
+                        current_line['month'] = _get_trade_republic_month_index(month)
+                    case [day, month, *description] if month in TRADE_REPUBLIC_MONTHS:
                         current_line['day'] = int(day)
-                        current_line['month'] = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                                                 "Okt.", "Nov.", "Dez."].index(month) + 1
+                        current_line['month'] = _get_trade_republic_month_index(month)
                         if description[0] in ['Buy', 'Sell', 'Savings']:
                             current_line['type'] = description[0]
                             if description[0] == 'Savings':
@@ -218,7 +243,7 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
                                 description = description[2:]
                         current_line['description'] = ' '.join(description)
                     case ['Handel', price, '€', _, '€']:
-                        current_line['price'] = float(price.replace('.', '').replace(',', '.'))
+                        current_line['price'] = _parse_euro_amount(price)
                     case ['Handel', *tableline]:
                         if tableline[0] in ['Buy', 'Sell', 'Savings']:
                             current_line['type'] = tableline[0]
@@ -229,14 +254,16 @@ def pdf_reader_traderepublic(pdffile: pdfplumber):
                                 # delete first element
                                 tableline = tableline[2:]
                             if "€" == tableline[-1] and "€" == tableline[-3]:
-                                current_line['price'] = float(tableline[-4].replace('.', '').replace(',', '.'))
+                                current_line['price'] = _parse_euro_amount(tableline[-4])
                                 del tableline[-4:]
                             current_line['description'] = current_line.get('description', '') + ' '.join(tableline)
-                    case ['Erträge', 'Cash', 'Dividend', 'for', 'ISIN', ISIN, earning, '€', _, '€']:
-                        current_line['type'] = "Dividend"
-                        current_line['description'] = ISIN
-                        current_line['price'] = float(earning.replace('.', '').replace(',', '.'))
                     case [year, *linerest] if year.isdigit() and int(year) > 1900:
+                        dividend_line = f"{year} {' '.join(linerest)}".strip()
+                        if _extract_trade_republic_dividend(dividend_line, current_line):
+                            if 'day' in current_line.keys() and 'month' in current_line.keys():
+                                finish_line(transactions, current_line)
+                                current_line = {}
+                            continue
                         if 'description' in current_line.keys():
                             current_line['description'] += ' ' + ' '.join(linerest)
                             current_line['year'] = int(year)
