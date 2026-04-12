@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional, Tuple
 
 import globals
 import Db_Sqlite
@@ -261,3 +261,28 @@ class Db:
             return self.db_sqlite.get_diversification_analysis()
         else:
             return None
+
+    def add_health_check_report(self, ticker_symbol: str, report_text: str) -> None:
+        """
+        Save a health check report for a ticker symbol.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+            report_text (str): The health check report text.
+        """
+        if self.db_sqlite is not None:
+            self.db_sqlite.add_health_check_report(ticker_symbol, report_text)
+
+    def get_latest_health_check_report(self, ticker_symbol: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get the latest saved health check report for a ticker symbol.
+
+        Args:
+            ticker_symbol (str): The ticker symbol.
+
+        Returns:
+            tuple: (report_date, report_text) or (None, None) if no report exists.
+        """
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_latest_health_check_report(ticker_symbol)
+        return None, None

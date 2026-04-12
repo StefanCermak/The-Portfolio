@@ -1,6 +1,6 @@
 import sqlite3
 import datetime
-from typing import Any, Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional, Tuple
 
 import globals
 
@@ -81,6 +81,13 @@ class DbSqlite:
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS ai_diversification_analysis(
                 analysis_date TEXT PRIMARY KEY,
                 analysis_text TEXT NOT NULL);
+        ''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS ai_health_check_reports(
+            report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker_symbol TEXT NOT NULL,
+            report_date TEXT NOT NULL,
+            report_text TEXT NOT NULL,
+            FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));
         ''')
         self.connection.commit()
 
@@ -448,6 +455,46 @@ class DbSqlite:
             VALUES (?, ?);
         ''', (datetime.date.today().isoformat(), analysis_text))
         self.connection.commit()
+
+    def add_health_check_report(self, ticker_symbol: str, report_text: str) -> None:
+        """
+        Save a health check report for a ticker with the current timestamp.
+
+        Args:
+            ticker_symbol (str): The stock ticker symbol.
+            report_text (str): The generated health check report text.
+        """
+        if not ticker_symbol or not report_text:
+            return
+        self.cursor.execute('''
+            INSERT INTO ai_health_check_reports (ticker_symbol, report_date, report_text)
+            VALUES (?, ?, ?);
+        ''', (ticker_symbol, datetime.datetime.now().isoformat(timespec='seconds'), report_text))
+        self.connection.commit()
+
+    def get_latest_health_check_report(self, ticker_symbol: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get the latest saved health check report for a ticker symbol.
+
+        Args:
+            ticker_symbol (str): The stock ticker symbol.
+
+        Returns:
+            tuple: (report_date, report_text) or (None, None) if no report exists.
+        """
+        if not ticker_symbol:
+            return None, None
+        self.cursor.execute('''
+            SELECT report_date, report_text
+            FROM ai_health_check_reports
+            WHERE ticker_symbol = ?
+            ORDER BY report_date DESC
+            LIMIT 1;
+        ''', (ticker_symbol,))
+        row = self.cursor.fetchone()
+        if row:
+            return row[0], row[1]
+        return None, None
 
     def get_diversification_analysis(self) -> Optional[str]:
         """

@@ -387,6 +387,9 @@ class StockInfoTab:
         # Update day data
         self.update_day_data(ticker_symbol)
 
+        # Load latest saved health check report
+        self.update_health_check_display(ticker_symbol)
+
         self.update_peer_compare()
     
     def on_timespan_selected(self, event) -> None:
@@ -590,6 +593,34 @@ class StockInfoTab:
         self.text_day_data.delete(1.0, tk.END)
         self.text_day_data.insert(tk.END, "Select a stock to view current day data")
         self.text_day_data.config(state=tk.DISABLED)
+
+        # Clear health check display
+        self.text_health_check.config(state=tk.NORMAL)
+        self.text_health_check.delete(1.0, tk.END)
+        self.text_health_check.insert(tk.END, "Select a stock to view the latest health check report")
+        self.text_health_check.config(state=tk.DISABLED)
+
+    def update_health_check_display(self, ticker_symbol: str) -> None:
+        """
+        Show the latest saved health check report for the selected stock.
+
+        Args:
+            ticker_symbol: The ticker symbol to load the report for.
+        """
+        report_date, report_text = self.db.get_latest_health_check_report(ticker_symbol)
+        self.text_health_check.config(state=tk.NORMAL)
+        self.text_health_check.delete(1.0, tk.END)
+
+        if report_text:
+            content = f"Latest Health Check for {ticker_symbol}\n"
+            content += f"{'=' * 40}\n\n"
+            content += f"Date: {report_date}\n\n"
+            content += report_text
+        else:
+            content = f"No saved health check report available for {ticker_symbol}."
+
+        self.text_health_check.insert(tk.END, content)
+        self.text_health_check.config(state=tk.DISABLED)
     
     def format_value(self, value) -> str:
         """Format a numeric value for display."""
@@ -676,10 +707,8 @@ class StockInfoTab:
                 self.button_health_check.config(state=tk.DISABLED, text="🧠💭💭💭")
                 report = ai_health_check.get_Health_Report(ticker, news)
                 def update_gui():
-                    self.text_health_check.config(state=tk.NORMAL)
-                    self.text_health_check.delete(1.0, tk.END)
-                    self.text_health_check.insert(tk.END, report)
-                    self.text_health_check.config(state=tk.DISABLED)
+                    self.db.add_health_check_report(ticker, report)
+                    self.update_health_check_display(ticker)
                     self.button_health_check.config(state=tk.NORMAL, text="🧠Health Check")
                 self.text_health_check.after(0, update_gui)
             except Exception as e:
