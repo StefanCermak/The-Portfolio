@@ -21,7 +21,14 @@ RSS_FEEDS_TICKERS = [
     "https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml",
     "https://www.tagesschau.de/wirtschaft/index~rss2.xml",
     "https://rss.orf.at/news.xml",
-    "https://www.investing.com/rss/news.rss"
+    "https://www.investing.com/rss/news.rss",
+    "https://services.dn.no/api/feed/rss/?channel=DN%20B%C3%B8rsen&category=DN%20B%C3%B8rsen%20-%20Nyheter&language=nb-NO",
+    "https://www.lifeinnorway.net/business/feed/",
+    "https://www.nrk.no/urix/nyheter.rss",
+    "https://financialpost.com/category/news/economy/feed",
+    "https://ca.investing.com/rss/news_14.rss",
+    "https://biv.com/rss",
+    
 ]
 
 HTML_CLEARNER_RE = re.compile('<.*?>')
