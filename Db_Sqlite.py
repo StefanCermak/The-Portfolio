@@ -89,6 +89,32 @@ class DbSqlite:
             report_text TEXT NOT NULL,
             FOREIGN KEY (ticker_symbol) REFERENCES stock_name_ticker_names(ticker_symbol));
         ''')
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tr_transactions (
+                transaction_id TEXT PRIMARY KEY,
+                datetime TEXT,
+                date TEXT,
+                account_type TEXT,
+                category TEXT,
+                type TEXT,
+                asset_class TEXT,
+                name TEXT,
+                symbol TEXT,
+                shares REAL,
+                price REAL,
+                amount REAL,
+                fee REAL,
+                tax REAL,
+                currency TEXT,
+                original_amount REAL,
+                original_currency TEXT,
+                fx_rate REAL,
+                description TEXT,
+                counterparty_name TEXT,
+                counterparty_iban TEXT,
+                payment_reference TEXT,
+                mcc_code TEXT
+            );''')
         self.connection.commit()
 
     def get_stock_set(self) -> Set[str]:
@@ -344,7 +370,8 @@ class DbSqlite:
         Find and close trade series where all shares have been sold, moving them to trade history.
         """
 
-        def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date):
+        def close_trade_series(stockname, total_money_earned, total_money_spend, start_date, end_date,
+                               trades_to_close):
             self.cursor.execute('''update active_trades
                 set is_active_series = 0
                 where trade_id in (
@@ -352,14 +379,9 @@ class DbSqlite:
                     from active_trades a
                     join stock_name_ticker_names s on a.ticker_symbol = s.ticker_symbol
                     where s.stockname = ? and a.is_active_series = 1
-                    order by a.trade_date asc
-                    limit (
-                        select count(*)
-                        from active_trades a2
-                        join stock_name_ticker_names s2 on a2.ticker_symbol = s2.ticker_symbol
-                        where s2.stockname = ? and a2.is_active_series = 1
-                    )
-                );''', (stockname, stockname))
+                    order by a.trade_date asc, a.trade_id asc
+                    limit ?
+                );''', (stockname, trades_to_close))
             self.cursor.execute('''
                 INSERT INTO trade_history (ticker_symbol, start_date, end_date, sum_buy, sum_sell)
                 VALUES (?, ?, ?, ?, ?);
@@ -380,9 +402,11 @@ class DbSqlite:
             total_money_spend = 0.0
             total_money_earnerd = 0.0
             start_date = None
+            trades_in_current_series = 0
             for row in rows:
                 if start_date is None:
                     start_date = datetime.date.fromisoformat(row[2])
+                trades_in_current_series += 1
                 total_quantity += row[0]
                 if row[0] > 0:
                     total_money_spend += row[1]
@@ -391,12 +415,49 @@ class DbSqlite:
                 if abs(total_quantity) < 0.0001:
                     # all shares sold, move to history
                     close_trade_series(Stock, total_money_earnerd, total_money_spend, start_date,
-                                       datetime.date.fromisoformat(row[2]))
+                                       datetime.date.fromisoformat(row[2]), trades_in_current_series)
                     total_quantity = 0.0
                     total_money_spend = 0.0
                     total_money_earnerd = 0.0
                     start_date = None
+                    trades_in_current_series = 0
         self.connection.commit()
+
+    def insert_tr_transaction(self, row: dict) -> bool:
+        """
+        Insert a raw Trade Republic CSV row into tr_transactions.
+        Uses INSERT OR IGNORE so re-importing the same CSV is safe.
+
+        Returns:
+            bool: True if the row was newly inserted, False if it already existed.
+        """
+        def _float(val):
+            return float(val) if val and val.strip() else None
+
+        self.cursor.execute('''
+            INSERT OR IGNORE INTO tr_transactions
+                (transaction_id, datetime, date, account_type, category, type, asset_class,
+                 name, symbol, shares, price, amount, fee, tax, currency, original_amount,
+                 original_currency, fx_rate, description, counterparty_name, counterparty_iban,
+                 payment_reference, mcc_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ''', (
+            row['transaction_id'], row['datetime'], row['date'], row['account_type'],
+            row['category'], row['type'], row['asset_class'], row['name'], row['symbol'],
+            _float(row['shares']), _float(row['price']), _float(row['amount']),
+            _float(row['fee']), _float(row['tax']), row['currency'],
+            _float(row['original_amount']), row['original_currency'],
+            _float(row['fx_rate']), row['description'],
+            row['counterparty_name'], row['counterparty_iban'],
+            row['payment_reference'], row['mcc_code'],
+        ))
+        self.connection.commit()
+        return self.cursor.rowcount > 0
+
+    def get_tr_transaction_count(self) -> int:
+        """Return the total number of rows in tr_transactions."""
+        self.cursor.execute('SELECT COUNT(*) FROM tr_transactions;')
+        return self.cursor.fetchone()[0]
 
     def add_new_analysis(self, analysis_dict: Dict[str, Dict[str, Any]]) -> None:
         """

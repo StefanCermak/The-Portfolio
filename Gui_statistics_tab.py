@@ -253,6 +253,9 @@ class StatisticsTab:
         sectors_and_industries = self._get_sectors_and_industries_invest()
         value_sector_eur = sectors_and_industries['sector']
         value_industry_eur = sectors_and_industries['industry']
+        # Remove zero/negative values that would cause pie chart errors
+        value_sector_eur = {k: v for k, v in value_sector_eur.items() if v > 0}
+        value_industry_eur = {k: v for k, v in value_industry_eur.items() if v > 0}
         # mixed sorting 1st biggest value, 2nd smallest value, 3th 2nd biggest value, 4th 2nd smallest value, ...
         # so that small values are between big segments
         value_sector_eur = dict(sorted(value_sector_eur.items(), key=lambda item: item[1], reverse=True))

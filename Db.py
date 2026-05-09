@@ -211,6 +211,16 @@ class Db:
         else:
             return dict()
 
+    def insert_tr_transaction(self, row: dict) -> bool:
+        if self.db_sqlite is not None:
+            return self.db_sqlite.insert_tr_transaction(row)
+        return False
+
+    def get_tr_transaction_count(self) -> int:
+        if self.db_sqlite is not None:
+            return self.db_sqlite.get_tr_transaction_count()
+        return 0
+
     def add_new_analysis(self, analysis_dict: Dict[str, Dict[str, Any]]) -> None:
         """
         Add or update AI stock analysis results for one or more ticker symbols.

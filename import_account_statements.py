@@ -1,9 +1,7 @@
 import os
+import csv
 import logging
 import datetime
-import re
-
-import pdfplumber
 
 import stockdata
 import Db
@@ -28,23 +26,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """ Module for importing account statements from files into the database. """
 
 
-TRADE_REPUBLIC_MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.",
-                         "Okt.", "Nov.", "Dez."]
-TRADE_REPUBLIC_DIVIDEND_REGEX = re.compile(
-    r'^(?:(?P<day>\d{1,2})\s+)?'
-    r'(?:(?P<month>Jan\.|Feb\.|März|Apr\.|Mai|Juni|Juli|Aug\.|Sept\.|Okt\.|Nov\.|Dez\.)\s+)?'
-    r'(?:(?P<year>\d{4})\s+)?'
-    r'Ertr(?:ag|äge)\s+Cash\s+Dividend\s+for\s+ISIN\s+(?P<isin>[A-Z0-9]+)\s+'
-    r'(?P<amount>[\d.,]+)\s+€(?:\s+[\d.,]+\s+€)?$'
-)
-
-
-def _parse_euro_amount(value: str) -> float:
-    return float(value.replace('.', '').replace(',', '.'))
-
-
-def _get_trade_republic_month_index(month: str) -> int:
-    return TRADE_REPUBLIC_MONTHS.index(month) + 1
 
 
 def _extract_trade_republic_dividend(line: str, current_line: dict) -> bool:
@@ -82,16 +63,15 @@ def from_folder(dir_path, db: Db.Db):
         for file in files:
             file_ext = os.path.splitext(file)[1].lower()
             file_path = os.path.join(root, file)
-            if file_ext == '.pdf':
+            if file_ext == '.csv':
                 try:
-                    transactions = pdf_reader(file_path)
-                    process_transactions(db, transactions)
-                    transactions_imported += len(transactions)
+                    new_raw, trading_transactions = csv_reader_traderepublic(file_path, db)
+                    process_transactions(db, trading_transactions)
+                    transactions_imported += len(trading_transactions)
                     files_processed += 1
-
-                    logger.info(f"Processed file: {file_path}, Transactions imported: {len(transactions)}")
+                    logger.info(f"Processed CSV: {file_path}, New raw rows: {new_raw}, Trading transactions: {len(trading_transactions)}")
                 except Exception as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
+                    logger.error(f"Error processing CSV file {file_path}: {e}")
     db.find_closed_trades()
 
     logger.info(f"Import completed. Files processed: {files_processed}, Transactions imported: {transactions_imported}")
@@ -134,164 +114,98 @@ def process_transactions(db: Db.Db, transactions: list):
             continue
 
 
-def pdf_reader(file_path):
+def csv_reader_traderepublic(file_path: str, db: Db.Db):
     """
-    Placeholder function for reading PDF files and extracting transactions.
-    This function should be implemented to parse the specific PDF format.
+    Read a Trade Republic CSV export, persist all rows in tr_transactions,
+    and return portfolio-relevant transactions (BUY / SELL / DIVIDEND).
 
     Args:
-        file_path (str): Path to the PDF file.
+        file_path (str): Path to the Trade Republic CSV file.
+        db (Db): Database instance.
 
     Returns:
-        list: A list of transaction dictionaries with keys 'date', 'type', 'ticker', 'quantity', 'price'.
+        tuple: (new_raw_count, trading_transactions)
+            new_raw_count       – number of rows newly inserted into tr_transactions
+            trading_transactions – list of dicts compatible with process_transactions()
     """
-    reader = pdfplumber.open(file_path)
-    first_page = reader.pages[0].extract_text()
-    if "KONTOÜBERSICHT" in first_page and "Trade Republic Bank GmbH" in first_page:
-        return pdf_reader_traderepublic(reader)
+    logger = logging.getLogger(__name__)
+    new_raw_count = 0
+    trading_transactions = []
 
-    return []
+    with open(file_path, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # ---- 1. Store raw row in tr_transactions (idempotent) ----
+            if db.insert_tr_transaction(row):
+                new_raw_count += 1
 
+            # ---- 2. Extract portfolio-relevant transactions ----
+            row_type = row.get('type', '')
+            category = row.get('category', '')
 
-def pdf_reader_traderepublic(pdffile: pdfplumber):
-    split_description_regex = re.compile(r'(\w+) (.*), +quantity: +([\d.]+)')
+            # Dividends are in CASH category, trades in TRADING category
+            is_trading = category == 'TRADING' and row_type in ('BUY', 'SELL')
+            is_dividend = row_type == 'DIVIDEND'
+            if not is_trading and not is_dividend:
+                continue
 
-    def finish_line(transactions, current_line):
-        if 'type' not in current_line.keys() or 'description' not in current_line.keys() or 'price' not in current_line.keys():
-            return
-        if current_line['type'] == 'Dividend':
-            isin = current_line['description']
+            isin = row.get('symbol', '').strip()
+            name = row.get('name', '').strip()
+            shares_str = row.get('shares', '').strip()
+            amount_str = row.get('amount', '').strip()
+            date_str = row.get('date', '').strip()
+
+            # Dividends have no shares; trades require shares
+            if not isin or not amount_str or not date_str:
+                continue
+            if is_trading and not shares_str:
+                continue
+
+            try:
+                shares = abs(float(shares_str)) if shares_str else 0.0
+                amount = abs(float(amount_str))
+                trade_date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Skipping row with parse error: {e} – row: {row}")
+                continue
+
             ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
-            if 'year' not in current_line.keys():
-                print("No year in line:", current_line)
-                return
-            date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
-            transactions.append(
-                {'date': date, 'type': 'Dividend', 'ticker': ticker_symbol, 'stockname': '',
-                 'quantity': 1, 'price': current_line['price']})
-
-        else:
-            regex_result = split_description_regex.match(current_line['description'])
-            if regex_result:
-                stockname = regex_result.group(2)
-                isin = regex_result.group(1)
-                quantity = float(regex_result.group(3))
-                ticker_symbol = stockdata.get_ticker_symbol_name_from_isin(isin)
-                if 'year' not in current_line.keys():
-                    print("No year in line:", current_line)
-                    return
-                date = datetime.datetime(year=current_line['year'], month=current_line['month'], day=current_line['day'])
-                transactions.append(
-                    {'date': date, 'type': current_line['type'], 'ticker': ticker_symbol, 'stockname': stockname,
-                    'quantity': quantity, 'price': current_line['price']})
-
-    transactions = []
-
-    for pagen_nr,page in enumerate(pdffile.pages):
-
-        text = page.extract_text()
-        in_table = False
-        current_line = {}
-        log = False
-        for line in text.split('\n'):
-            if line.startswith("DATUM"):
-                print(f"Analyzing page {pagen_nr + 1}/{len(pdffile.pages)}")
-                in_table = True
+            if not ticker_symbol:
+                logger.warning(f"No ticker found for ISIN {isin} ({name}). Skipping.")
                 continue
-            elif "Trade Republic Bank GmbH" in line or "BARMITTELÜBERSICHT" in line:
-                in_table = False
-                continue
-            #if line.startswith("02 Sept."):
-            #    log = True
-            #if line.startswith("09 Sept."):
-            #    log = False
-            log= (pagen_nr+1) == -99
 
-            if in_table:
-                if "Kartentransaktion" in line or "Überweisung" in line or "Gebühren" in line or "Zinszahlung" in line:
-                    continue
-                if _extract_trade_republic_dividend(line, current_line):
-                    if all(key in current_line for key in ('day', 'month', 'year')):
-                        finish_line(transactions, current_line)
-                        current_line = {}
-                    continue
-                if log:
-                    print("Processing line:", line)
-                match line.split():
-                    case [day] if day.isdigit() and 1 <= int(day) <= 31:
-                        current_line['day'] = int(day)
-                    case [Month, "Handel", price, "€", _, "€"] if Month in TRADE_REPUBLIC_MONTHS:
-                        current_line['month'] = _get_trade_republic_month_index(Month)
-                        current_line['price'] = _parse_euro_amount(price)
-                    case [Month, "Handel", dir, "trade", *description, price, '€', _, '€'] if Month in TRADE_REPUBLIC_MONTHS and dir in ['Buy', 'Sell']:
-                        current_line['month'] = _get_trade_republic_month_index(Month)
-                        current_line['type'] = dir
-                        current_line['description'] = ' '.join(description)
-                        current_line['price'] = _parse_euro_amount(price)
-                    case [day, month] if month in TRADE_REPUBLIC_MONTHS:
-                        current_line['day'] = int(day)
-                        current_line['month'] = _get_trade_republic_month_index(month)
-                    case [day, month, *description] if month in TRADE_REPUBLIC_MONTHS:
-                        current_line['day'] = int(day)
-                        current_line['month'] = _get_trade_republic_month_index(month)
-                        if description[0] in ['Buy', 'Sell', 'Savings']:
-                            current_line['type'] = description[0]
-                            if description[0] == 'Savings':
-                                current_line['type'] = 'Buy'
-                                description = description[4:]
-                            else:
-                                description = description[2:]
-                        current_line['description'] = ' '.join(description)
-                    case ['Handel', price, '€', _, '€']:
-                        current_line['price'] = _parse_euro_amount(price)
-                    case ['Handel', *tableline]:
-                        if tableline[0] in ['Buy', 'Sell', 'Savings']:
-                            current_line['type'] = tableline[0]
-                            if 'Savings' == tableline[0]:
-                                current_line['type'] = 'Buy'
-                                tableline = tableline[4:]
-                            else:
-                                # delete first element
-                                tableline = tableline[2:]
-                            if "€" == tableline[-1] and "€" == tableline[-3]:
-                                current_line['price'] = _parse_euro_amount(tableline[-4])
-                                del tableline[-4:]
-                            current_line['description'] = current_line.get('description', '') + ' '.join(tableline)
-                    case [year, *linerest] if year.isdigit() and int(year) > 1900:
-                        dividend_line = f"{year} {' '.join(linerest)}".strip()
-                        if _extract_trade_republic_dividend(dividend_line, current_line):
-                            if 'day' in current_line.keys() and 'month' in current_line.keys():
-                                finish_line(transactions, current_line)
-                                current_line = {}
-                            continue
-                        if 'description' in current_line.keys():
-                            current_line['description'] += ' ' + ' '.join(linerest)
-                            current_line['year'] = int(year)
-                            finish_line(transactions, current_line)
-                        current_line = {}
-                    case [dir, 'trade', *linerest] if dir in ['Buy', 'Sell']:
-                        current_line['type'] = dir
-                        current_line['description'] = ' '.join(linerest)
-                    case ['Savings', 'plan', 'execution', *linerest]:
-                        current_line['type'] = 'Buy'
-                        current_line['description'] = ' '.join(linerest)
-                    case [year] if year.isdigit() and int(year) > 1900:
-                        if 'description' in current_line.keys():
-                            current_line['year'] = int(year)
-                            finish_line(transactions, current_line)
-                        current_line = {}
-                    case [*linerest]:
-                        if 'description' in current_line.keys() and 'year' not in current_line.keys():
-                            current_line['description'] += ' ' + ' '.join(linerest)
-                if log:
-                    print(line, current_line)
-    return transactions
+            if row_type == 'BUY':
+                trading_transactions.append({
+                    'date': trade_date,
+                    'type': 'Buy',
+                    'ticker': ticker_symbol,
+                    'stockname': name,
+                    'quantity': shares,
+                    'price': amount,
+                })
+            elif row_type == 'SELL':
+                trading_transactions.append({
+                    'date': trade_date,
+                    'type': 'Sell',
+                    'ticker': ticker_symbol,
+                    'stockname': name,
+                    'quantity': shares,
+                    'price': amount,
+                })
+            elif row_type == 'DIVIDEND':
+                tax_str = row.get('tax', '').strip()
+                tax = abs(float(tax_str)) if tax_str else 0.0
+                net_amount = amount - tax
+                trading_transactions.append({
+                    'date': trade_date,
+                    'type': 'Dividend',
+                    'ticker': ticker_symbol,
+                    'stockname': name,
+                    'quantity': 1,
+                    'price': net_amount,
+                })
+
+    return new_raw_count, trading_transactions
 
 
-if __name__ == "__main__":
-    file = r'account_statements/Kontoauszug.pdf'
-    transactions = pdf_reader(file)
 
-    for transaction in transactions:
-        print(
-            f"{transaction['date'].date()} {transaction['type']} {transaction['quantity']} of {transaction['ticker']} ({transaction['stockname']}) at {transaction['price']}")
